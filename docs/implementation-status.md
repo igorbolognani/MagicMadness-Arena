@@ -47,6 +47,12 @@ only through ADRs that preserve the product contract.
   both Pixi and native Canvas render paths.
 - Native Canvas 2D fallback at the renderer boundary keeps the same arena
   state and controls playable when a browser cannot initialize WebGL.
+- Mobile input pass: circular move and aim sticks now feed the live command
+  stream, their knobs track pointer position, and skill buttons send the
+  canonical hold-preview/release-cast command on pointer up or cancellation.
+- Skill HUD pass: circular skill/utility controls expose distinct projectile,
+  radial, field, wall, pull, arc and dash glyphs instead of four identical
+  buttons.
 - Separate API and WebSocket server deployable boundaries.
 - Strict runtime-validated client input protocol; client position/hit/damage/
   cooldown/RNG/death/respawn/score/economy fields are not accepted as authority.
@@ -103,6 +109,10 @@ hardware/FPS, memory and heat measurements require a real-device playtest.
   sprite-atlas production. The next art dependency is replacing procedural unit
   shapes with original animated hero sheets, terrain tiles and elemental VFX
   while preserving the same GameState contract.
+- The browser's own address/status chrome may remain visible when the hosting
+  surface denies fullscreen; the client now fills the available viewport and
+  keeps its game canvas edge-to-edge, but cannot remove browser chrome without
+  platform permission or an installed PWA shell.
 
 ## Verification policy
 
