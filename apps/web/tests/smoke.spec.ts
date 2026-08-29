@@ -22,6 +22,8 @@ test("public universe pages keep separate routes", async ({ page }) => {
   await page.goto("/heroes");
   await expect(page).toHaveURL(/\/heroes$/);
   await expect(page.getByRole("heading", { name: /the starter roster/i })).toBeVisible();
+  const publicMenu = page.getByRole("button", { name: /open public menu/i });
+  if (await publicMenu.isVisible()) await publicMenu.click();
   await page.getByRole("link", { name: /elements/i }).click();
   await expect(page).toHaveURL(/\/elements$/);
   await expect(page.getByRole("heading", { name: /elemental grammar/i })).toBeVisible();

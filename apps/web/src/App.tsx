@@ -176,18 +176,20 @@ const publicLinks = [
 ] as const;
 
 function PublicChrome({ path, navigate, children }: { path: string; navigate: Navigate; children: ReactNode }) {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   return (
     <main className="public-page">
       <nav className="public-nav">
         <Brand navigate={navigate} />
-        <div className="public-nav-links">
+        <div className={"public-nav-links " + (mobileNavOpen ? "open" : "")}>
           {publicLinks.map(([to, label]) => (
-            <RouteLink key={to} to={to} navigate={navigate} className={path === to ? "active" : ""}>
+            <RouteLink key={to} to={to} navigate={(to) => { setMobileNavOpen(false); navigate(to); }} className={path === to ? "active" : ""}>
               {label}
             </RouteLink>
           ))}
-          <RouteLink to="/login" navigate={navigate} className="ghost-button nav-cta">Sign in / Play</RouteLink>
+          <RouteLink to="/login" navigate={(to) => { setMobileNavOpen(false); navigate(to); }} className="ghost-button nav-cta">Sign in / Play</RouteLink>
         </div>
+        <button className="mobile-public-menu" onClick={() => setMobileNavOpen((value) => !value)} aria-expanded={mobileNavOpen} aria-label="Open public menu">{mobileNavOpen ? "Close" : "Menu"}</button>
       </nav>
       {children}
       <footer className="public-footer"><span>MagicMadness Arena</span><span>Physics · Identity · Positioning</span><RouteLink to="/news" navigate={navigate}>Build notes →</RouteLink></footer>

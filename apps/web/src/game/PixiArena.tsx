@@ -634,7 +634,7 @@ export function PixiArena(props: PixiArenaProps) {
         fallbackRef.current = true;
         canvasContextRef.current = canvas.getContext("2d");
         try {
-          app.destroy(true, { children: true, texture: false, baseTexture: false });
+          app.destroy(false, { children: true, texture: false, baseTexture: false });
         } catch {
           // Fall through to the native canvas renderer.
         }
