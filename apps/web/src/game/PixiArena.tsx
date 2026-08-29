@@ -601,7 +601,7 @@ export function PixiArena(props: PixiArenaProps) {
       observer.disconnect();
       if (app) {
         try {
-          app.destroy(true, { children: true, texture: false, baseTexture: false });
+          app.destroy(false, { children: true, texture: false, baseTexture: false });
         } catch {
           // A partially initialized WebGL renderer may not have a destroyable context.
         }
