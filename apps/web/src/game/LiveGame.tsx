@@ -28,6 +28,11 @@ type LiveGameProps = {
 
 const skillIndexes: SkillIndex[] = [0, 1, 2, 3];
 const heroGlyph: Record<string, string> = { fire: "✦", water: "◒", earth: "⬟", air: "◌" };
+const behaviorGlyph: Record<string, string> = { projectile: "✦", radial: "✺", field: "◉", wall: "▰", pull: "◒", arc: "ϟ", dash: "➤" };
+
+function skillGlyph(behavior: string, element: string): string {
+  return behaviorGlyph[behavior] ?? heroGlyph[element] ?? "✦";
+}
 
 function percent(value: number, maximum: number): string {
   return Math.max(0, Math.min(100, Math.round((value / maximum) * 100))) + "%";
@@ -43,6 +48,11 @@ function seedFromMatchId(matchId: string): number {
   return Math.max(1, seed);
 }
 
+function requestGameFullscreen(): void {
+  const request = document.documentElement.requestFullscreen?.();
+  if (request) void request.catch(() => undefined);
+}
+
 export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "standard" }: LiveGameProps) {
   const gameRef = useRef<GameState>(createMatch({ seed: seedFromMatchId(matchId), playerHeroId: heroId, botCount: 3, mode }));
   const [game, setGame] = useState<GameState>(() => structuredClone(gameRef.current));
@@ -55,8 +65,12 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
   const telemetryRef = useRef(new MemoryTelemetry());
   const canvasCastingRef = useRef(false);
   const movementPointerRef = useRef<number | null>(null);
+  const aimPointerRef = useRef<number | null>(null);
   const pinchDistanceRef = useRef<number | null>(null);
   const touchMoveRef = useRef({ x: 0, y: 0 });
+  const touchAimRef = useRef({ x: 1, y: 0 });
+  const movementPadRef = useRef<HTMLDivElement | null>(null);
+  const aimPadRef = useRef<HTMLDivElement | null>(null);
 
   const player = game.players.player;
   const hero = heroesById[heroId] ?? heroesById["fire-ember"];
@@ -105,6 +119,8 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
     const down = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       keysRef.current.add(key);
+      if (event.repeat) return;
+      if ([" ", "q", "e", "1", "2", "3", "4"].includes(key)) event.preventDefault();
       if (key === "q") fireOneShot("healthPotion");
       if (key === "e") fireOneShot("manaPotion");
       if (key === " ") fireOneShot("dash");
@@ -147,6 +163,20 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
     commandRef.current = { ...commandRef.current, aim: nextAim };
   }
 
+  function setStickVisual(element: HTMLDivElement | null, vector: { x: number; y: number }): void {
+    if (!element) return;
+    element.style.setProperty("--stick-x", `${vector.x * 28}px`);
+    element.style.setProperty("--stick-y", `${vector.y * 28}px`);
+  }
+
+  function pointerVector(event: React.PointerEvent<HTMLDivElement>): { x: number; y: number } {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
+    const y = (event.clientY - (rect.top + rect.height / 2)) / (rect.height / 2);
+    const magnitude = Math.hypot(x, y);
+    return magnitude > 1 ? { x: x / magnitude, y: y / magnitude } : { x, y };
+  }
+
   function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>): void {
     updateAimFromClient(event.clientX, event.clientY, event.currentTarget);
     if (movementPointerRef.current === event.pointerId) return;
@@ -162,21 +192,42 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
   }
 
   function handleMovementPointer(event: React.PointerEvent<HTMLDivElement>): void {
+    event.preventDefault();
     if (movementPointerRef.current === null) {
       movementPointerRef.current = event.pointerId;
       event.currentTarget.setPointerCapture(event.pointerId);
     }
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = (event.clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
-    const y = (event.clientY - (rect.top + rect.height / 2)) / (rect.height / 2);
-    const magnitude = Math.hypot(x, y);
-    touchMoveRef.current = magnitude > 1 ? { x: x / magnitude, y: y / magnitude } : { x, y };
+    if (movementPointerRef.current !== event.pointerId) return;
+    touchMoveRef.current = pointerVector(event);
+    setStickVisual(movementPadRef.current, touchMoveRef.current);
   }
 
   function endMovementPointer(event: React.PointerEvent<HTMLDivElement>): void {
     if (movementPointerRef.current === event.pointerId) {
       movementPointerRef.current = null;
       touchMoveRef.current = { x: 0, y: 0 };
+      setStickVisual(movementPadRef.current, touchMoveRef.current);
+    }
+  }
+
+  function handleAimPointer(event: React.PointerEvent<HTMLDivElement>): void {
+    event.preventDefault();
+    if (aimPointerRef.current === null) {
+      aimPointerRef.current = event.pointerId;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+    if (aimPointerRef.current !== event.pointerId) return;
+    const nextAim = pointerVector(event);
+    touchAimRef.current = nextAim.x === 0 && nextAim.y === 0 ? touchAimRef.current : nextAim;
+    commandRef.current = { ...commandRef.current, aim: touchAimRef.current };
+    setAim(touchAimRef.current);
+    setStickVisual(aimPadRef.current, touchAimRef.current);
+  }
+
+  function endAimPointer(event: React.PointerEvent<HTMLDivElement>): void {
+    if (aimPointerRef.current === event.pointerId) {
+      aimPointerRef.current = null;
+      setStickVisual(aimPadRef.current, { x: 0, y: 0 });
     }
   }
 
@@ -227,7 +278,7 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
         <button className="game-brand" onClick={onExit}><span className="brand-mark">MM</span><span>MagicMadness</span></button>
         <div className="round-readout"><span className="mini-label">ROUND {game.round}</span><strong>{Math.max(0, 120 - Math.floor(game.time))}s</strong><small>{game.mode === "final" ? "FINAL · 3 respawns" : "STANDARD · 1 respawn"}</small></div>
         <div className="event-readout"><span className={"event-dot " + game.environmental.phase} /><span><small>ARENA PERSONALITY</small><strong>{game.environmental.name}</strong></span><em>{game.environmental.phase === "active" ? "ACTIVE" : game.environmental.phase === "warning" ? "TELEGRAPH" : Math.ceil(game.environmental.remaining) + "s"}</em></div>
-        <button className="exit-button" onClick={onExit}>Exit</button>
+        <button className="fullscreen-button" aria-label="Enter fullscreen" title="Enter fullscreen" onClick={requestGameFullscreen}>⛶</button><button className="exit-button" onClick={onExit}>Exit</button>
       </header>
       <section className="game-body">
         <aside className="game-rail left-rail">
@@ -244,9 +295,10 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
           <div className="live-card leaderboard"><span className="mini-label">LIVE PLACEMENT</span>{scoreRows.map((row, index) => <div className={"leader-row " + (row.id === "player" ? "self" : "")} key={row.id}><span className="placement">{index + 1}</span><span className="leader-name"><i style={{ background: heroesById[row.heroId]?.color ?? "#fff" }} />{row.name}</span><strong>{row.matchScore}</strong></div>)}</div>
           <div className="live-card event-log"><span className="mini-label">EVENT LOG</span>{eventRows.map((event) => <div className="log-row" key={event.id}><span>{event.type.replaceAll("_", " ")}</span><small>{event.detail ?? event.tags[0] ?? "system"}</small></div>)}</div>
         </aside>
-        <div className="movement-pad" onPointerDown={handleMovementPointer} onPointerMove={handleMovementPointer} onPointerUp={endMovementPointer} onPointerCancel={endMovementPointer}><span className="pad-cross">+</span><span className="pad-caption">MOVE</span></div>
+        <div ref={movementPadRef} className="movement-pad" data-testid="move-stick" onPointerDown={handleMovementPointer} onPointerMove={handleMovementPointer} onPointerUp={endMovementPointer} onPointerCancel={endMovementPointer} onLostPointerCapture={endMovementPointer}><span className="pad-cross">+</span><span className="pad-caption">MOVE</span></div>
+        <div ref={aimPadRef} className="aim-pad" data-testid="aim-stick" onPointerDown={handleAimPointer} onPointerMove={handleAimPointer} onPointerUp={endAimPointer} onPointerCancel={endAimPointer} onLostPointerCapture={endAimPointer}><span className="pad-cross">⌖</span><span className="pad-caption">AIM</span></div>
         <div className="combat-controls">
-          <div className="skill-row">{skillIndexes.map((index) => { const skill = getHeroSkill(hero.id, index); const tuning = getSkillTuning(skill.id); const cooldown = player.cooldowns[skill.id] ?? 0; return <button key={skill.id} className={"skill-button " + (heldSkill === index ? "holding" : "")} style={{ "--hero-color": hero.color } as React.CSSProperties} title={skill.summary} onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); setHeldSkill(index); }} onPointerUp={() => releaseSkill(index)} onPointerCancel={() => setHeldSkill(null)}><span className="skill-key">{index + 1}</span><span className="skill-glyph">{heroGlyph[hero.element] ?? "✦"}</span><small>{cooldown > 0 ? cooldown.toFixed(1) : tuning.behavior}</small>{cooldown > 0 && <span className="cooldown-cover" style={{ height: Math.min(100, cooldown / tuning.cooldown * 100) + "%" }} />}</button>; })}</div>
+          <div className="skill-row">{skillIndexes.map((index) => { const skill = getHeroSkill(hero.id, index); const tuning = getSkillTuning(skill.id); const cooldown = player.cooldowns[skill.id] ?? 0; return <button key={skill.id} data-testid={`skill-${index + 1}`} className={"skill-button " + (heldSkill === index ? "holding" : "")} style={{ "--hero-color": hero.color } as React.CSSProperties} title={skill.summary} aria-label={`${skill.name}. Hold to aim, release to cast.`} onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); setHeldSkill(index); }} onPointerUp={() => releaseSkill(index)} onPointerCancel={() => releaseSkill(index)}><span className="skill-key">{index + 1}</span><span className="skill-glyph">{skillGlyph(tuning.behavior, hero.element)}</span><small>{cooldown > 0 ? cooldown.toFixed(1) : tuning.behavior}</small>{cooldown > 0 && <span className="cooldown-cover" style={{ height: Math.min(100, cooldown / tuning.cooldown * 100) + "%" }} />}</button>; })}</div>
           <div className="utility-row"><button className="utility-button dash-button" onPointerDown={() => fireOneShot("dash")}><strong>⇢</strong><small>DASH · SPACE</small><em>{player.tacticalCooldown > 0 ? player.tacticalCooldown.toFixed(1) : "READY"}</em></button><button className="utility-button" onPointerDown={() => fireOneShot("healthPotion")}><strong>♥</strong><small>HEALTH · Q</small></button><button className="utility-button" onPointerDown={() => fireOneShot("manaPotion")}><strong>◈</strong><small>MANA · E</small></button></div>
           </div>
       </section>
