@@ -39,6 +39,12 @@ only through ADRs that preserve the product contract.
 - Pixi arena presentation upgraded with layered background, arena compass,
   object silhouettes, shadows, projectile trails, hero glyphs, status rings and
   Wind Surge telegraph/active visuals.
+- Game-client presentation pass: match viewport is fullscreen-first, the arena
+  is the dominant surface, HUD rails are overlays, and landscape mobile layouts
+  hide secondary diagnostics/logs instead of squeezing the world.
+- Live hero presentation now includes a stylized 2D unit silhouette, shadow,
+  cloak/body layers, head, weapon line, elemental core and animated aura in
+  both Pixi and native Canvas render paths.
 - Native Canvas 2D fallback at the renderer boundary keeps the same arena
   state and controls playable when a browser cannot initialize WebGL.
 - Separate API and WebSocket server deployable boundaries.
@@ -93,6 +99,10 @@ hardware/FPS, memory and heat measurements require a real-device playtest.
   PixiJS and the complete content/game-core slice are shipped together. This is
   an observed optimization gap; the next safe technical step is route/client
   code-splitting without changing simulation behavior.
+- The current visual pass is an authored vector-renderer baseline, not a final
+  sprite-atlas production. The next art dependency is replacing procedural unit
+  shapes with original animated hero sheets, terrain tiles and elemental VFX
+  while preserving the same GameState contract.
 
 ## Verification policy
 
