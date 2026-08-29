@@ -92,6 +92,13 @@ Touch-facing skills, dash and potion actions use circular controls in the match
 HUD. Skill glyphs are derived from the versioned balance behavior, while the
 renderer remains responsible for the higher-fidelity world presentation.
 
+### T013 — Persistent visual confirmation for non-projectile casts
+
+Because radial, pull, field, wall and dash skills do not all leave a moving
+projectile in the world, the renderer emits a short behavior-specific cast
+burst from the `CAST_RELEASE` event. This is presentation-only feedback; hit,
+damage, cooldown and outcome remain owned by `game-core`.
+
 ## Change rule
 
 Any technical change that changes authority, simulation ordering, content
