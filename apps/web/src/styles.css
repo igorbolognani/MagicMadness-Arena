@@ -767,6 +767,87 @@ button:focus-visible, a:focus-visible { outline: 3px solid #f4d35e; outline-offs
 }
 .result-overlay { inset: 0; z-index: 20; }
 
+/* Touch controls are game controls: circular, large enough to hold, and
+   rendered above the arena without stealing the canvas pointer layer. */
+html:has(.game-page), body:has(.game-page) {
+  width: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  background: #03050b;
+  overscroll-behavior: none;
+}
+.game-page {
+  width: 100vw;
+  min-height: 100svh;
+  height: 100svh;
+  touch-action: none;
+  overflow: hidden;
+}
+.movement-pad, .aim-pad {
+  position: absolute;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  border: 1px solid rgba(224, 232, 255, .28);
+  background: radial-gradient(circle at 50% 44%, rgba(44, 64, 113, .74), rgba(6, 10, 23, .88) 66%);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .34), inset 0 0 0 1px rgba(255,255,255,.05);
+  backdrop-filter: blur(12px);
+}
+.movement-pad::after, .aim-pad::after {
+  width: 48px;
+  height: 48px;
+  left: calc(50% - 24px + var(--stick-x, 0px));
+  top: calc(50% - 24px + var(--stick-y, 0px));
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.32);
+  background: radial-gradient(circle at 35% 30%, rgba(200, 187, 255, .38), rgba(107, 83, 181, .34));
+  box-shadow: 0 0 22px rgba(150, 119, 255, .2);
+  transition: left .08s linear, top .08s linear;
+}
+.movement-pad:active, .aim-pad:active { border-color: rgba(255, 209, 102, .68); }
+.aim-pad { right: 24px; bottom: 132px; z-index: 9; }
+.aim-pad .pad-cross { color: #f4d35e; }
+.pad-cross { z-index: 1; font-size: 26px; color: #dfe6ff; text-shadow: 0 0 14px rgba(170, 146, 255, .6); }
+.pad-caption { z-index: 1; bottom: -18px; color: #93a0bb; font-size: 9px; letter-spacing: .18em; }
+.skill-button {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  gap: 1px;
+  border-width: 1px;
+  background: radial-gradient(circle at 50% 32%, color-mix(in srgb, var(--hero-color), transparent 78%), rgba(10, 15, 31, .94) 67%);
+}
+.skill-button:hover, .skill-button.holding { transform: translateY(-3px) scale(1.04); box-shadow: 0 0 0 2px color-mix(in srgb, var(--hero-color), transparent 62%), 0 14px 30px rgba(0,0,0,.35); }
+.skill-button .skill-glyph { font-size: 25px; line-height: 1; filter: drop-shadow(0 0 9px var(--hero-color)); }
+.skill-button small { max-width: 58px; font-size: 7px; letter-spacing: .05em; }
+.skill-key { top: 11px; left: 22px; font-size: 8px; }
+.utility-button {
+  min-width: 60px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  padding: 0;
+  gap: 0;
+}
+.utility-button strong { font-size: 19px; }
+.utility-button small { max-width: 50px; font-size: 6px; text-align: center; }
+.utility-button em { font-size: 7px; }
+.combat-controls { right: 24px; bottom: 18px; }
+.skill-row, .utility-row { gap: 10px; }
+.arena-canvas { width: 100% !important; height: 100% !important; }
+.fullscreen-button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 50%;
+  color: #e8edff;
+  background: rgba(10, 15, 31, .72);
+  font-size: 18px;
+}
+.fullscreen-button:hover { border-color: rgba(244,211,94,.72); color: #f4d35e; }
+
 @media (orientation: landscape) and (max-width: 1050px) {
   .game-rail { width: 178px; }
   .right-rail .event-log, .left-rail .diagnostic-card { display: none; }
@@ -774,6 +855,9 @@ button:focus-visible, a:focus-visible { outline: 3px solid #f4d35e; outline-offs
   .live-identity { margin-block: 7px 10px; }
   .arena-title { left: 202px; }
   .game-rail.right-rail + .movement-pad { left: 16px; }
+  .aim-pad { right: 14px; bottom: 126px; width: 86px; height: 86px; }
+  .aim-pad::after { width: 40px; height: 40px; left: calc(50% - 20px + var(--stick-x, 0px)); top: calc(50% - 20px + var(--stick-y, 0px)); }
+  .combat-controls { right: 14px; }
 }
 
 @media (orientation: landscape) and (max-height: 650px) {
@@ -785,7 +869,15 @@ button:focus-visible, a:focus-visible { outline: 3px solid #f4d35e; outline-offs
   .live-glyph { font-size: 19px; }
   .movement-pad { width: 88px; height: 88px; left: 17px; bottom: 15px; }
   .movement-pad::after { width: 42px; height: 42px; }
+  .aim-pad { right: 17px; bottom: 116px; width: 76px; height: 76px; }
+  .aim-pad::after { width: 36px; height: 36px; left: calc(50% - 18px + var(--stick-x, 0px)); top: calc(50% - 18px + var(--stick-y, 0px)); }
   .combat-controls { right: 17px; bottom: 12px; }
-  .skill-button { width: 52px; height: 57px; }
-  .utility-button { min-width: 55px; height: 41px; }
+  .skill-row, .utility-row { gap: 7px; }
+  .skill-button { width: 54px; height: 54px; }
+  .skill-button .skill-glyph { font-size: 20px; }
+  .skill-button small { max-width: 46px; font-size: 6px; }
+  .skill-key { top: 8px; left: 18px; }
+  .utility-button { width: 48px; min-width: 48px; height: 48px; }
+  .utility-button strong { font-size: 16px; }
+  .utility-button small { display: none; }
 }
