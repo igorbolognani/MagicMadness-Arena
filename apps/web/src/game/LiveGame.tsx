@@ -64,6 +64,7 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
   const keysRef = useRef(new Set<string>());
   const telemetryRef = useRef(new MemoryTelemetry());
   const canvasCastingRef = useRef(false);
+  const heldSkillRef = useRef<SkillIndex | null>(null);
   const movementPointerRef = useRef<number | null>(null);
   const aimPointerRef = useRef<number | null>(null);
   const pinchDistanceRef = useRef<number | null>(null);
@@ -75,6 +76,10 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
   const player = game.players.player;
   const hero = heroesById[heroId] ?? heroesById["fire-ember"];
   const preview: SkillPreview | null = heldSkill === null ? null : previewSkill(game, "player", heldSkill, aim);
+
+  useEffect(() => {
+    heldSkillRef.current = heldSkill;
+  }, [heldSkill]);
 
   useEffect(() => {
     let frame = 0;
@@ -113,6 +118,23 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    const releaseUncapturedInput = () => {
+      movementPointerRef.current = null;
+      aimPointerRef.current = null;
+      touchMoveRef.current = { x: 0, y: 0 };
+      setStickVisual(movementPadRef.current, touchMoveRef.current);
+      setStickVisual(aimPadRef.current, { x: 0, y: 0 });
+      if (canvasCastingRef.current && heldSkillRef.current !== null) releaseSkill(heldSkillRef.current);
+    };
+    window.addEventListener("pointerup", releaseUncapturedInput);
+    window.addEventListener("pointercancel", releaseUncapturedInput);
+    return () => {
+      window.removeEventListener("pointerup", releaseUncapturedInput);
+      window.removeEventListener("pointercancel", releaseUncapturedInput);
+    };
   }, []);
 
   useEffect(() => {
