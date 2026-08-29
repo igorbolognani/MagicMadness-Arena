@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   compareDeterministicSnapshots,
   createMatch,
+  getHeroSkill,
   previewSkill,
   resolveDeathForTesting,
   startFinalRound,
@@ -70,6 +71,22 @@ describe("MagicMadness deterministic game core", () => {
     run(state, 80);
     expect(state.events.some((event) => event.type === "DAMAGE")).toBe(true);
     expect(state.events.some((event) => event.type === "IMPULSE")).toBe(true);
+  });
+
+  it("accepts every starter skill and preserves 360-degree aim", () => {
+    const starterHeroes = ["fire-ember", "water-tide", "earth-bastion", "air-gale"] as const;
+    for (const [heroIndex, heroId] of starterHeroes.entries()) {
+      for (const skillIndex of [0, 1, 2, 3] as const) {
+        const state = createMatch({ seed: 70 + heroIndex * 10 + skillIndex, playerHeroId: heroId, botCount: 0 });
+        const skill = getHeroSkill(heroId, skillIndex);
+        const player = state.players.player!;
+        player.mana = player.maxMana;
+        stepMatch(state, [{ ...idle(), aim: { x: 0, y: -1 }, releaseSkill: skillIndex }]);
+        expect(player.input.aim.x).toBeCloseTo(0, 5);
+        expect(player.input.aim.y).toBeCloseTo(-1, 5);
+        expect(state.events.some((event) => event.type === "CAST_RELEASE" && event.sourceDefinitionId === skill.id)).toBe(true);
+      }
+    }
   });
 
   it("runs the telegraphed environmental event cycle", () => {
