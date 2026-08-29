@@ -16,6 +16,28 @@ test("public homepage reaches the local bot match", async ({ page }) => {
   await expect(page.getByTestId("game-client")).toBeVisible({ timeout: 15000 });
   await expect(page.getByTestId("arena-canvas")).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("LOCAL BOT MATCH")).toBeVisible();
+  await expect(page.getByTestId("move-stick")).toBeVisible();
+  await expect(page.getByTestId("aim-stick")).toBeVisible();
+  await expect(page.getByTestId("skill-1")).toBeVisible();
+  await expect(page.getByTestId("skill-1")).toHaveCSS("border-radius", "50%");
+
+  const moveStick = page.getByTestId("move-stick");
+  const moveBox = await moveStick.boundingBox();
+  if (!moveBox) throw new Error("Move stick did not have a layout box");
+  await page.mouse.move(moveBox.x + moveBox.width / 2, moveBox.y + moveBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(moveBox.x + moveBox.width - 8, moveBox.y + moveBox.height / 2, { steps: 3 });
+  await page.waitForTimeout(120);
+  await page.mouse.up();
+
+  const skill = page.getByTestId("skill-1");
+  const skillBox = await skill.boundingBox();
+  if (!skillBox) throw new Error("Skill control did not have a layout box");
+  await page.mouse.move(skillBox.x + skillBox.width / 2, skillBox.y + skillBox.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(120);
+  await page.mouse.up();
+  await expect(page.locator(".event-log")).toContainText(/CAST START|INPUT ACCEPTED/i);
 });
 
 test("public universe pages keep separate routes", async ({ page }) => {
