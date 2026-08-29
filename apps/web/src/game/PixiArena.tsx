@@ -31,6 +31,13 @@ function colorForObject(color: string, fallback = 0xffffff): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function shadeColor(color: number, amount: number): number {
+  const red = Math.max(0, Math.min(255, ((color >> 16) & 0xff) + amount));
+  const green = Math.max(0, Math.min(255, ((color >> 8) & 0xff) + amount));
+  const blue = Math.max(0, Math.min(255, (color & 0xff) + amount));
+  return (red << 16) | (green << 8) | blue;
+}
+
 function normalizeVector(vector: { x: number; y: number }): { x: number; y: number } {
   const length = Math.hypot(vector.x, vector.y);
   return length > 0 ? { x: vector.x / length, y: vector.y / length } : { x: 1, y: 0 };
@@ -115,6 +122,30 @@ function drawCanvasWorld(
   context.fillRect(0, 0, game.arena.width, game.arena.height);
   context.fillStyle = "#0c1426";
   context.fillRect(game.arena.safeMin.x, game.arena.safeMin.y, game.arena.safeMax.x - game.arena.safeMin.x, game.arena.safeMax.y - game.arena.safeMin.y);
+  context.fillStyle = "rgba(117, 91, 66, .12)";
+  for (let x = 40; x < game.arena.width; x += 160) {
+    for (let y = 40; y < game.arena.height; y += 160) {
+      context.fillRect(x, y, 76, 76);
+      context.strokeStyle = "rgba(210, 177, 126, .12)";
+      context.lineWidth = 2;
+      context.beginPath();
+      context.moveTo(x + 8, y + 10);
+      context.lineTo(x + 68, y + 10);
+      context.moveTo(x + 12, y + 66);
+      context.lineTo(x + 62, y + 66);
+      context.stroke();
+    }
+  }
+  context.fillStyle = "rgba(53, 186, 246, .18)";
+  for (const crystal of [{ x: 165, y: 125 }, { x: 1435, y: 675 }, { x: 1435, y: 125 }, { x: 165, y: 675 }]) {
+    context.beginPath();
+    context.moveTo(crystal.x, crystal.y - 22);
+    context.lineTo(crystal.x + 14, crystal.y + 7);
+    context.lineTo(crystal.x, crystal.y + 24);
+    context.lineTo(crystal.x - 14, crystal.y + 7);
+    context.closePath();
+    context.fill();
+  }
   const atmosphere = context.createRadialGradient(game.arena.center.x, game.arena.center.y, 30, game.arena.center.x, game.arena.center.y, 360);
   atmosphere.addColorStop(0, "rgba(72, 52, 112, .26)");
   atmosphere.addColorStop(1, "rgba(23, 37, 65, 0)");
@@ -262,6 +293,33 @@ function drawCanvasWorld(
     context.beginPath();
     context.ellipse(player.position.x + 7, player.position.y + 10, player.radius * 1.08, player.radius * 0.72, 0, 0, Math.PI * 2);
     context.fill();
+    const aim = normalizeVector(player.input.aim);
+    const side = { x: -aim.y, y: aim.x };
+    context.fillStyle = canvasHex(shadeColor(colorForHero(player.heroId), -36));
+    context.beginPath();
+    context.moveTo(player.position.x - side.x * player.radius * 0.82 - aim.x * 5, player.position.y - side.y * player.radius * 0.82 - aim.y * 5);
+    context.lineTo(player.position.x + side.x * player.radius * 0.82 - aim.x * 5, player.position.y + side.y * player.radius * 0.82 - aim.y * 5);
+    context.lineTo(player.position.x + aim.x * player.radius * 0.8, player.position.y + aim.y * player.radius * 0.8);
+    context.closePath();
+    context.fill();
+    context.fillStyle = "#f1d0aa";
+    context.beginPath();
+    context.arc(player.position.x - aim.x * player.radius * 0.32, player.position.y - aim.y * player.radius * 0.32 - player.radius * 0.56, player.radius * 0.38, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = canvasHex(shadeColor(colorForHero(player.heroId), 24));
+    context.beginPath();
+    context.arc(player.position.x - aim.x * player.radius * 0.34, player.position.y - aim.y * player.radius * 0.34, player.radius * 0.78, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = "rgba(244,226,192,.88)";
+    context.lineWidth = 3;
+    context.beginPath();
+    context.moveTo(player.position.x + side.x * player.radius * 0.15, player.position.y + side.y * player.radius * 0.15);
+    context.lineTo(player.position.x + aim.x * player.radius * 1.38 + side.x * player.radius * 0.15, player.position.y + aim.y * player.radius * 1.38 + side.y * player.radius * 0.15);
+    context.stroke();
+    context.fillStyle = canvasHex(elementColor(heroesById[player.heroId]?.element ?? "fire"));
+    context.beginPath();
+    context.arc(player.position.x + aim.x * player.radius * 0.72, player.position.y + aim.y * player.radius * 0.72, Math.max(4, player.radius * 0.18), 0, Math.PI * 2);
+    context.fill();
     if (player.id === "player") {
       context.strokeStyle = `rgba(255, 255, 255, ${0.2 + pulse * 0.18})`;
       context.lineWidth = 2;
@@ -280,7 +338,6 @@ function drawCanvasWorld(
     context.beginPath();
     context.arc(player.position.x - player.radius * 0.28, player.position.y - player.radius * 0.31, player.radius * 0.36, 0, Math.PI * 2);
     context.fill();
-    const aim = normalizeVector(player.input.aim);
     context.strokeStyle = "rgba(255,255,255,.8)";
     context.lineWidth = 4;
     context.beginPath();
@@ -334,6 +391,24 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
   background.beginFill(0x0c1426, 1);
   background.drawRect(game.arena.safeMin.x, game.arena.safeMin.y, game.arena.safeMax.x - game.arena.safeMin.x, game.arena.safeMax.y - game.arena.safeMin.y);
   background.endFill();
+  const floor = new Graphics();
+  floor.beginFill(0x8a684e, 0.1);
+  for (let x = 40; x < game.arena.width; x += 160) {
+    for (let y = 40; y < game.arena.height; y += 160) {
+      floor.drawRect(x, y, 76, 76);
+      floor.lineStyle(2, 0xd2b17e, 0.11);
+      floor.moveTo(x + 8, y + 10);
+      floor.lineTo(x + 68, y + 10);
+      floor.moveTo(x + 12, y + 66);
+      floor.lineTo(x + 62, y + 66);
+    }
+  }
+  for (const crystal of [{ x: 165, y: 125 }, { x: 1435, y: 675 }, { x: 1435, y: 125 }, { x: 165, y: 675 }]) {
+    floor.beginFill(0x35baf6, 0.2);
+    floor.drawPolygon([crystal.x, crystal.y - 22, crystal.x + 14, crystal.y + 7, crystal.x, crystal.y + 24, crystal.x - 14, crystal.y + 7]);
+    floor.endFill();
+  }
+  root.addChild(floor);
   background.beginFill(0x172541, 0.18);
   background.drawCircle(game.arena.center.x, game.arena.center.y, 320 + pulse * 18);
   background.endFill();
@@ -504,6 +579,31 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
     const heroColor = colorForHero(player.heroId);
     heroGraphic.beginFill(0x02040a, 0.42);
     heroGraphic.drawEllipse(player.position.x + 7, player.position.y + 10, player.radius * 1.08, player.radius * 0.72);
+    heroGraphic.endFill();
+    const heroAim = normalizeVector(player.input.aim);
+    const side = { x: -heroAim.y, y: heroAim.x };
+    const cloakColor = shadeColor(heroColor, -36);
+    heroGraphic.beginFill(cloakColor, 0.96);
+    heroGraphic.drawPolygon([
+      player.position.x - side.x * player.radius * 0.82 - heroAim.x * 5,
+      player.position.y - side.y * player.radius * 0.82 - heroAim.y * 5,
+      player.position.x + side.x * player.radius * 0.82 - heroAim.x * 5,
+      player.position.y + side.y * player.radius * 0.82 - heroAim.y * 5,
+      player.position.x + heroAim.x * player.radius * 0.8,
+      player.position.y + heroAim.y * player.radius * 0.8,
+    ]);
+    heroGraphic.endFill();
+    heroGraphic.beginFill(0xf1d0aa, 1);
+    heroGraphic.drawCircle(player.position.x - heroAim.x * player.radius * 0.32, player.position.y - heroAim.y * player.radius * 0.32 - player.radius * 0.56, player.radius * 0.38);
+    heroGraphic.endFill();
+    heroGraphic.beginFill(shadeColor(heroColor, 24), 0.95);
+    heroGraphic.drawCircle(player.position.x - heroAim.x * player.radius * 0.34, player.position.y - heroAim.y * player.radius * 0.34, player.radius * 0.78);
+    heroGraphic.endFill();
+    heroGraphic.lineStyle(3, 0xf4e2c0, 0.88);
+    heroGraphic.moveTo(player.position.x + side.x * player.radius * 0.15, player.position.y + side.y * player.radius * 0.15);
+    heroGraphic.lineTo(player.position.x + heroAim.x * player.radius * 1.38 + side.x * player.radius * 0.15, player.position.y + heroAim.y * player.radius * 1.38 + side.y * player.radius * 0.15);
+    heroGraphic.beginFill(elementColor(heroesById[player.heroId]?.element ?? "fire"), 0.9);
+    heroGraphic.drawCircle(player.position.x + heroAim.x * player.radius * 0.72, player.position.y + heroAim.y * player.radius * 0.72, Math.max(4, player.radius * 0.18));
     heroGraphic.endFill();
     if (player.id === "player") {
       heroGraphic.lineStyle(2, 0xffffff, 0.18 + pulse * 0.17);
