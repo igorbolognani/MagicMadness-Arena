@@ -66,3 +66,20 @@ client and input surface without changing simulation, scoring or authority.
 Any technical change that changes authority, simulation ordering, content
 versioning, persistence, or deployment boundaries requires a new ADR and
 updated evidence in implementation-status.md.
+
+### T009 — Fullscreen-first match presentation
+
+The match route owns the whole viewport. The arena renderer is the visual
+foundation; score, placement, diagnostics, event log and controls are layered
+over it and reduced on mobile landscape. This preserves the canonical HUD
+information while ensuring the client reads as a game scene before it reads as
+an application shell.
+
+### T010 — Procedural art baseline before sprite production
+
+The first visual client pass uses deterministic renderer-side shapes for unit
+silhouettes, arena floor detail, props and elemental feedback so the game can be
+played and tested without coupling art files to simulation. These shapes are an
+implementation baseline, not a product art decision; original animated sprite
+atlases, terrain tiles and authored VFX can replace them without changing
+GameState, content, balance or authority contracts.
