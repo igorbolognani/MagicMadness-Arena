@@ -5,7 +5,8 @@ import {
   type GameState,
   type SkillPreview,
 } from "@mma/game-core";
-import { heroesById } from "@mma/content";
+import { heroesById, skillsById } from "@mma/content";
+import { getSkillTuning } from "@mma/balance";
 
 type PixiArenaProps = {
   game: GameState;
@@ -43,6 +44,23 @@ function normalizeVector(vector: { x: number; y: number }): { x: number; y: numb
   return length > 0 ? { x: vector.x / length, y: vector.y / length } : { x: 1, y: 0 };
 }
 
+function orientedRectangle(center: { x: number; y: number }, direction: { x: number; y: number }, width: number, depth: number): number[] {
+  const aim = normalizeVector(direction);
+  const side = { x: -aim.y, y: aim.x };
+  const halfWidth = width / 2;
+  const halfDepth = depth / 2;
+  return [
+    center.x - side.x * halfWidth - aim.x * halfDepth,
+    center.y - side.y * halfWidth - aim.y * halfDepth,
+    center.x + side.x * halfWidth - aim.x * halfDepth,
+    center.y + side.y * halfWidth - aim.y * halfDepth,
+    center.x + side.x * halfWidth + aim.x * halfDepth,
+    center.y + side.y * halfWidth + aim.y * halfDepth,
+    center.x - side.x * halfWidth + aim.x * halfDepth,
+    center.y - side.y * halfWidth + aim.y * halfDepth,
+  ];
+}
+
 function elementGlyphForHero(heroId: string): string {
   const element = heroesById[heroId]?.element;
   return element === "fire" ? "✦" : element === "water" ? "◒" : element === "earth" ? "⬟" : "◌";
@@ -68,10 +86,89 @@ function drawPreview(root: Container, preview: SkillPreview): void {
   }
   if (preview.geometry.kind === "wall") {
     path.beginFill(0xffffff, 0.2);
-    path.drawRect(preview.impact.x - preview.geometry.width / 2, preview.impact.y - 18, preview.geometry.width, 36);
+    path.drawPolygon(orientedRectangle(preview.impact, preview.direction, preview.geometry.width, 36));
     path.endFill();
   }
   root.addChild(path);
+}
+
+function drawCastBursts(root: Container, game: GameState): void {
+  const recentCasts = game.events.filter((event) => event.type === "CAST_RELEASE" && event.position && event.vector && event.sourceDefinitionId && game.tick - event.tick <= 24);
+  for (const event of recentCasts) {
+    if (!event.position || !event.vector || !event.sourceDefinitionId) continue;
+    const tuning = getSkillTuning(event.sourceDefinitionId);
+    const definition = skillsById[event.sourceDefinitionId];
+    if (!definition) continue;
+    const age = Math.max(0, game.tick - event.tick);
+    const alpha = Math.max(0, 1 - age / 24);
+    const direction = normalizeVector(event.vector);
+    const target = { x: event.position.x + direction.x * tuning.range, y: event.position.y + direction.y * tuning.range };
+    const burst = new Graphics();
+    const color = elementColor(definition.element);
+    burst.lineStyle(4, color, alpha * 0.9);
+    burst.beginFill(color, alpha * 0.12);
+    if (tuning.behavior === "radial" || tuning.behavior === "pull" || tuning.behavior === "field") {
+      burst.drawCircle(target.x, target.y, tuning.effectRadius * (0.72 + age / 34));
+      burst.endFill();
+      burst.drawCircle(target.x, target.y, tuning.effectRadius * (0.42 + age / 48));
+    } else if (tuning.behavior === "wall") {
+      const wallWidth = definition.geometry.kind === "wall" ? definition.geometry.width : 120;
+      burst.drawPolygon(orientedRectangle(target, direction, wallWidth, 34));
+      burst.endFill();
+      const wallLine = orientedRectangle(target, direction, wallWidth - 16, 3);
+      burst.moveTo(wallLine[0] ?? target.x, wallLine[1] ?? target.y);
+      burst.lineTo(wallLine[2] ?? target.x, wallLine[3] ?? target.y);
+    } else if (tuning.behavior === "dash") {
+      burst.moveTo(event.position.x, event.position.y);
+      burst.lineTo(target.x, target.y);
+      burst.drawCircle(event.position.x, event.position.y, tuning.effectRadius * (1 - alpha * 0.3));
+      burst.endFill();
+    } else {
+      burst.moveTo(event.position.x, event.position.y);
+      burst.lineTo(target.x, target.y);
+      burst.endFill();
+      burst.drawCircle(event.position.x, event.position.y, 12 + age * 1.6);
+    }
+    root.addChild(burst);
+  }
+}
+
+function combatEventPosition(game: GameState, event: GameState["events"][number]): { x: number; y: number } | null {
+  if (event.position) return event.position;
+  if (event.targetId) return game.players[event.targetId]?.position ?? null;
+  return null;
+}
+
+function drawCombatImpacts(root: Container, game: GameState): void {
+  for (const event of game.events) {
+    if ((event.type !== "DAMAGE" && event.type !== "IMPULSE") || game.tick - event.tick > 18) continue;
+    const position = combatEventPosition(game, event);
+    if (!position) continue;
+    const age = Math.max(0, game.tick - event.tick);
+    const alpha = Math.max(0, 1 - age / 18);
+    const sourceSkill = event.sourceDefinitionId ? skillsById[event.sourceDefinitionId] : undefined;
+    const color = sourceSkill
+      ? elementColor(sourceSkill.element)
+      : 0xffffff;
+    const impact = new Graphics();
+    impact.lineStyle(event.type === "DAMAGE" ? 3 : 2, color, alpha * 0.9);
+    impact.drawCircle(position.x, position.y, 10 + age * 2.7);
+    const spokes = event.type === "DAMAGE" ? 6 : 4;
+    for (let spoke = 0; spoke < spokes; spoke += 1) {
+      const angle = event.sequence * 0.41 + spoke * Math.PI * 2 / spokes;
+      const inner = 12 + age * 1.4;
+      const outer = 22 + age * 2.4;
+      impact.moveTo(position.x + Math.cos(angle) * inner, position.y + Math.sin(angle) * inner);
+      impact.lineTo(position.x + Math.cos(angle) * outer, position.y + Math.sin(angle) * outer);
+    }
+    if (event.type === "IMPULSE" && event.vector) {
+      const direction = normalizeVector(event.vector);
+      impact.lineStyle(4, color, alpha * 0.68);
+      impact.moveTo(position.x - direction.x * 28, position.y - direction.y * 28);
+      impact.lineTo(position.x + direction.x * 18, position.y + direction.y * 18);
+    }
+    root.addChild(impact);
+  }
 }
 
 function canvasHex(color: number): string {
@@ -91,6 +188,48 @@ function canvasRoundedRect(context: CanvasRenderingContext2D, x: number, y: numb
   context.lineTo(x, y + safeRadius);
   context.quadraticCurveTo(x, y, x + safeRadius, y);
   context.closePath();
+}
+
+function canvasPolygon(context: CanvasRenderingContext2D, points: number[]): void {
+  context.beginPath();
+  context.moveTo(points[0] ?? 0, points[1] ?? 0);
+  for (let index = 2; index < points.length; index += 2) {
+    context.lineTo(points[index] ?? 0, points[index + 1] ?? 0);
+  }
+  context.closePath();
+}
+
+function drawCanvasPreview(context: CanvasRenderingContext2D, preview: SkillPreview): void {
+  context.save();
+  context.setLineDash([11, 8]);
+  context.strokeStyle = preview.path[0]?.certainty === "dynamic" ? "rgba(255,209,102,.9)" : "rgba(255,255,255,.78)";
+  context.lineWidth = 3;
+  context.beginPath();
+  context.moveTo(preview.origin.x, preview.origin.y);
+  context.lineTo(preview.impact.x, preview.impact.y);
+  context.stroke();
+  context.setLineDash([]);
+  context.fillStyle = "rgba(255,255,255,.92)";
+  context.beginPath();
+  context.arc(preview.origin.x, preview.origin.y, 6, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = "rgba(255,255,255,.92)";
+  context.lineWidth = 2;
+  if (preview.geometry.kind === "wall") {
+    canvasPolygon(context, orientedRectangle(preview.impact, preview.direction, preview.geometry.width, 36));
+    context.fillStyle = "rgba(255,255,255,.18)";
+    context.fill();
+    context.stroke();
+  } else {
+    context.beginPath();
+    context.arc(preview.impact.x, preview.impact.y, Math.max(12, preview.radius), 0, Math.PI * 2);
+    context.stroke();
+    if (["circle", "pullCircle", "ring", "trail", "orbit"].includes(preview.geometry.kind)) {
+      context.fillStyle = "rgba(255,255,255,.08)";
+      context.fill();
+    }
+  }
+  context.restore();
 }
 
 function drawCanvasWorld(
@@ -284,6 +423,85 @@ function drawCanvasWorld(
     context.globalAlpha = 1;
   }
 
+  for (const event of game.events) {
+    if (event.type !== "CAST_RELEASE" || !event.position || !event.vector || !event.sourceDefinitionId || game.tick - event.tick > 24) continue;
+    const tuning = getSkillTuning(event.sourceDefinitionId);
+    const definition = skillsById[event.sourceDefinitionId];
+    if (!definition) continue;
+    const age = Math.max(0, game.tick - event.tick);
+    const alpha = Math.max(0, 1 - age / 24);
+    const direction = normalizeVector(event.vector);
+    const target = { x: event.position.x + direction.x * tuning.range, y: event.position.y + direction.y * tuning.range };
+    context.strokeStyle = canvasHex(elementColor(definition.element));
+    context.fillStyle = canvasHex(elementColor(definition.element));
+    context.globalAlpha = alpha * 0.9;
+    context.lineWidth = 4;
+    context.beginPath();
+    if (tuning.behavior === "radial" || tuning.behavior === "pull" || tuning.behavior === "field") {
+      context.arc(target.x, target.y, tuning.effectRadius * (0.72 + age / 34), 0, Math.PI * 2);
+      context.stroke();
+      context.globalAlpha = alpha * 0.12;
+      context.beginPath();
+      context.arc(target.x, target.y, tuning.effectRadius * (0.72 + age / 34), 0, Math.PI * 2);
+      context.fill();
+    } else if (tuning.behavior === "wall") {
+      const wallWidth = definition.geometry.kind === "wall" ? definition.geometry.width : 120;
+      canvasPolygon(context, orientedRectangle(target, direction, wallWidth, 34));
+      context.stroke();
+    } else if (tuning.behavior === "dash") {
+      context.moveTo(event.position.x, event.position.y);
+      context.lineTo(target.x, target.y);
+      context.stroke();
+    } else {
+      context.moveTo(event.position.x, event.position.y);
+      context.lineTo(target.x, target.y);
+      context.stroke();
+      context.beginPath();
+      context.arc(event.position.x, event.position.y, 12 + age * 1.6, 0, Math.PI * 2);
+      context.stroke();
+    }
+    context.globalAlpha = 1;
+  }
+
+  for (const event of game.events) {
+    if ((event.type !== "DAMAGE" && event.type !== "IMPULSE") || game.tick - event.tick > 18) continue;
+    const position = combatEventPosition(game, event);
+    if (!position) continue;
+    const age = Math.max(0, game.tick - event.tick);
+    const alpha = Math.max(0, 1 - age / 18);
+    const sourceSkill = event.sourceDefinitionId ? skillsById[event.sourceDefinitionId] : undefined;
+    const color = sourceSkill
+      ? canvasHex(elementColor(sourceSkill.element))
+      : "#ffffff";
+    context.strokeStyle = color;
+    context.globalAlpha = alpha * 0.9;
+    context.lineWidth = event.type === "DAMAGE" ? 3 : 2;
+    context.beginPath();
+    context.arc(position.x, position.y, 10 + age * 2.7, 0, Math.PI * 2);
+    context.stroke();
+    const spokes = event.type === "DAMAGE" ? 6 : 4;
+    for (let spoke = 0; spoke < spokes; spoke += 1) {
+      const angle = event.sequence * 0.41 + spoke * Math.PI * 2 / spokes;
+      const inner = 12 + age * 1.4;
+      const outer = 22 + age * 2.4;
+      context.beginPath();
+      context.moveTo(position.x + Math.cos(angle) * inner, position.y + Math.sin(angle) * inner);
+      context.lineTo(position.x + Math.cos(angle) * outer, position.y + Math.sin(angle) * outer);
+      context.stroke();
+    }
+    if (event.type === "IMPULSE" && event.vector) {
+      const direction = normalizeVector(event.vector);
+      context.lineWidth = 4;
+      context.beginPath();
+      context.moveTo(position.x - direction.x * 28, position.y - direction.y * 28);
+      context.lineTo(position.x + direction.x * 18, position.y + direction.y * 18);
+      context.stroke();
+    }
+    context.globalAlpha = 1;
+  }
+
+  if (preview) drawCanvasPreview(context, preview);
+
   context.textAlign = "center";
   context.textBaseline = "middle";
   for (const player of Object.values(game.players)) {
@@ -344,6 +562,30 @@ function drawCanvasWorld(
     context.moveTo(player.position.x, player.position.y);
     context.lineTo(player.position.x + aim.x * (player.radius + 14), player.position.y + aim.y * (player.radius + 14));
     context.stroke();
+    if (player.id === "player") {
+      const reticle = { x: player.position.x + aim.x * 132, y: player.position.y + aim.y * 132 };
+      context.setLineDash([5, 5]);
+      context.strokeStyle = "rgba(255,255,255,.48)";
+      context.lineWidth = 1.5;
+      context.beginPath();
+      context.moveTo(player.position.x + aim.x * 26, player.position.y + aim.y * 26);
+      context.lineTo(reticle.x, reticle.y);
+      context.stroke();
+      context.setLineDash([]);
+      context.strokeStyle = "rgba(255,255,255,.9)";
+      context.lineWidth = 2;
+      context.beginPath();
+      context.arc(reticle.x, reticle.y, 8 + pulse * 2, 0, Math.PI * 2);
+      context.moveTo(reticle.x - 13, reticle.y);
+      context.lineTo(reticle.x - 4, reticle.y);
+      context.moveTo(reticle.x + 4, reticle.y);
+      context.lineTo(reticle.x + 13, reticle.y);
+      context.moveTo(reticle.x, reticle.y - 13);
+      context.lineTo(reticle.x, reticle.y - 4);
+      context.moveTo(reticle.x, reticle.y + 4);
+      context.lineTo(reticle.x, reticle.y + 13);
+      context.stroke();
+    }
     const element = heroesById[player.heroId]?.element ?? "fire";
     context.strokeStyle = canvasHex(elementColor(element));
     context.fillStyle = canvasHex(elementColor(element));
@@ -378,6 +620,15 @@ function drawCanvasWorld(
       context.arc(player.position.x + 5, player.position.y, 7, -1.1, 1.1);
       context.stroke();
     }
+    for (let particleIndex = 0; particleIndex < 3; particleIndex += 1) {
+      const particleAngle = game.time * (element === "air" ? 1.7 : 1.05) + particleIndex * (Math.PI * 2 / 3);
+      const particleRadius = player.radius * (1.22 + 0.08 * Math.sin(game.time * 3 + particleIndex));
+      context.globalAlpha = 0.42 + pulse * 0.28;
+      context.beginPath();
+      context.arc(player.position.x + Math.cos(particleAngle) * particleRadius, player.position.y + Math.sin(particleAngle) * particleRadius, Math.max(2.5, player.radius * 0.1), 0, Math.PI * 2);
+      context.fill();
+    }
+    context.globalAlpha = 1;
     context.fillStyle = "#ffffff";
     context.font = "bold 18px Arial";
     context.fillText(elementGlyphForHero(player.heroId), player.position.x, player.position.y + 1);
@@ -607,6 +858,8 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
     root.addChild(projectileGraphic);
   }
 
+  drawCombatImpacts(root, game);
+
   for (const player of Object.values(game.players)) {
     if (!player.alive) continue;
     const heroGraphic = new Graphics();
@@ -671,10 +924,33 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
       heroGraphic.arc(player.position.x - 2, player.position.y, 10, -1.1, 1.1);
       heroGraphic.arc(player.position.x + 5, player.position.y, 7, -1.1, 1.1);
     }
+    for (let particleIndex = 0; particleIndex < 3; particleIndex += 1) {
+      const particleAngle = game.time * (element === "air" ? 1.7 : 1.05) + particleIndex * (Math.PI * 2 / 3);
+      const particleRadius = player.radius * (1.22 + 0.08 * Math.sin(game.time * 3 + particleIndex));
+      heroGraphic.beginFill(emblemColor, 0.42 + pulse * 0.28);
+      heroGraphic.drawCircle(player.position.x + Math.cos(particleAngle) * particleRadius, player.position.y + Math.sin(particleAngle) * particleRadius, Math.max(2.5, player.radius * 0.1));
+      heroGraphic.endFill();
+    }
     const aim = player.input.aim;
     heroGraphic.lineStyle(4, 0xffffff, 0.8);
     heroGraphic.moveTo(player.position.x, player.position.y);
     heroGraphic.lineTo(player.position.x + aim.x * (player.radius + 14), player.position.y + aim.y * (player.radius + 14));
+    if (player.id === "player") {
+      const reticle = { x: player.position.x + aim.x * 132, y: player.position.y + aim.y * 132 };
+      heroGraphic.lineStyle(1.5, 0xffffff, 0.4);
+      heroGraphic.moveTo(player.position.x + aim.x * 26, player.position.y + aim.y * 26);
+      heroGraphic.lineTo(reticle.x, reticle.y);
+      heroGraphic.lineStyle(2, 0xffffff, 0.9);
+      heroGraphic.drawCircle(reticle.x, reticle.y, 8 + pulse * 2);
+      heroGraphic.moveTo(reticle.x - 13, reticle.y);
+      heroGraphic.lineTo(reticle.x - 4, reticle.y);
+      heroGraphic.moveTo(reticle.x + 4, reticle.y);
+      heroGraphic.lineTo(reticle.x + 13, reticle.y);
+      heroGraphic.moveTo(reticle.x, reticle.y - 13);
+      heroGraphic.lineTo(reticle.x, reticle.y - 4);
+      heroGraphic.moveTo(reticle.x, reticle.y + 4);
+      heroGraphic.lineTo(reticle.x, reticle.y + 13);
+    }
     const burning = player.statuses.some((entry) => entry.id === "burning");
     const slowed = player.statuses.some((entry) => entry.id === "slowed");
     if (burning || slowed) {
@@ -700,6 +976,7 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
     root.addChild(hp);
   }
 
+  drawCastBursts(root, game);
   if (preview) drawPreview(root, preview);
 }
 
