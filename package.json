@@ -1,0 +1,21 @@
+{
+  "name": "magicmadness-arena",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.6.0",
+  "scripts": {
+    "dev": "pnpm --filter @mma/web dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "test:watch": "pnpm --filter @mma/game-core test -- --watch",
+    "validate:content": "pnpm --filter @mma/content test",
+    "e2e": "pnpm --filter @mma/web e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

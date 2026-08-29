@@ -1,0 +1,24 @@
+name: Simulation regression
+
+on:
+  pull_request:
+    paths:
+      - "packages/game-core/**"
+      - "packages/physics/**"
+      - "packages/balance/**"
+      - "packages/content/**"
+
+jobs:
+  simulation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm --filter @mma/game-core test

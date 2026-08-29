@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+.openai
+upload
+.env
+.env.*
+!.env.example
+.DS_Store
+playwright-report
+test-results
+.turbo
