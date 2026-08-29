@@ -896,17 +896,17 @@ html:has(.game-page), body:has(.game-page) {
   .game-brand { font-size: 11px; }
   .live-card { font-size: 10px; }
   .live-glyph { font-size: 19px; }
-  .movement-pad { width: 88px; height: 88px; left: 17px; bottom: 15px; }
+  .movement-pad { width: 94px; height: 94px; left: 17px; bottom: 15px; }
   .movement-pad::after { width: 42px; height: 42px; }
-  .aim-pad { right: 17px; bottom: 15px; width: 76px; height: 76px; }
-  .aim-pad::after { width: 36px; height: 36px; left: calc(50% - 18px + var(--stick-x, 0px)); top: calc(50% - 18px + var(--stick-y, 0px)); }
+  .aim-pad { right: 17px; bottom: 15px; width: 82px; height: 82px; }
+  .aim-pad::after { width: 40px; height: 40px; left: calc(50% - 20px + var(--stick-x, 0px)); top: calc(50% - 20px + var(--stick-y, 0px)); }
   .combat-controls { right: 50%; bottom: 12px; }
   .skill-row, .utility-row { gap: 7px; }
-  .skill-button { width: 54px; height: 54px; }
-  .skill-button .skill-glyph { font-size: 20px; }
+  .skill-button { width: 62px; height: 62px; }
+  .skill-button .skill-glyph { font-size: 23px; }
   .skill-button small { display: none; }
   .skill-key { top: 8px; left: 18px; }
-  .utility-button { width: 48px; min-width: 48px; height: 48px; }
-  .utility-button strong { font-size: 16px; }
+  .utility-button { width: 54px; min-width: 54px; height: 54px; }
+  .utility-button strong { font-size: 18px; }
   .utility-button small { display: none; }
 }
