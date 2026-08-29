@@ -61,6 +61,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@mma/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@mma/balance':
         specifier: workspace:*
         version: link:../../packages/balance
@@ -70,6 +73,9 @@ importers:
       '@mma/game-core':
         specifier: workspace:*
         version: link:../../packages/game-core
+      '@mma/progression':
+        specifier: workspace:*
+        version: link:../../packages/progression
       '@mma/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry

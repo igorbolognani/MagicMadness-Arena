@@ -31,6 +31,29 @@ Development uses a local identity. Sign in with ChatGPT is represented by an
 adapter because availability depends on the deployment surface; account
 identity is never derived from email.
 
+### T005 — Route-separated game client
+
+The public discovery surface, authenticated launcher and actual match client
+are separate URL route families: public `/`, `/heroes`, `/elements`,
+`/modes`, `/world` and `/news`; authenticated `/game/*`; and match
+`/match/local/:matchId` or `/match/history/:stageId`. The web client uses a
+small history API adapter so the surface remains static-host compatible while
+retaining real navigation and deep-linkable entry points.
+
+### T006 — Fullscreen as progressive enhancement
+
+Starting a match requests browser fullscreen from the initiating user gesture.
+The game remains playable in a normal viewport when fullscreen is unavailable;
+`100dvh`, safe-area-aware responsive layout and the landscape warning preserve
+the mobile contract without making browser fullscreen a gameplay dependency.
+
+### T007 — HD presentation without simulation coupling
+
+Public/stage presentation may use original raster key art, while the live arena
+remains code-rendered through Pixi from authoritative `GameState`. Visual art
+cannot become a gameplay input or balance source; the deterministic simulation
+continues to use versioned content and balance packages.
+
 ## Change rule
 
 Any technical change that changes authority, simulation ordering, content

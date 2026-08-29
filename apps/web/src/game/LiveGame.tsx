@@ -10,6 +10,7 @@ import {
   stepMatch,
   type GameState,
   type InputCommand,
+  type MatchMode,
   type SkillIndex,
   type SkillPreview,
 } from "@mma/game-core";
@@ -21,6 +22,8 @@ import { PixiArena } from "./PixiArena";
 type LiveGameProps = {
   heroId: HeroId;
   onExit: () => void;
+  matchId?: string;
+  mode?: MatchMode;
 };
 
 const skillIndexes: SkillIndex[] = [0, 1, 2, 3];
@@ -34,8 +37,14 @@ function actionCommand(base: InputCommand, key: "dash" | "healthPotion" | "manaP
   return { ...base, [key]: true };
 }
 
-export function LiveGame({ heroId, onExit }: LiveGameProps) {
-  const gameRef = useRef<GameState>(createMatch({ seed: 20260829, playerHeroId: heroId, botCount: 3 }));
+function seedFromMatchId(matchId: string): number {
+  let seed = 17;
+  for (const character of matchId) seed = (seed * 31 + character.charCodeAt(0)) % 2_147_483_647;
+  return Math.max(1, seed);
+}
+
+export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "standard" }: LiveGameProps) {
+  const gameRef = useRef<GameState>(createMatch({ seed: seedFromMatchId(matchId), playerHeroId: heroId, botCount: 3, mode }));
   const [game, setGame] = useState<GameState>(() => structuredClone(gameRef.current));
   const [heldSkill, setHeldSkill] = useState<SkillIndex | null>(null);
   const [aim, setAim] = useState({ x: 1, y: 0 });
@@ -227,7 +236,7 @@ export function LiveGame({ heroId, onExit }: LiveGameProps) {
           <div className="diagnostic-card"><span className="mini-label">DIAGNOSTICS</span><div><span>tick</span><strong>{game.tick}</strong></div><div><span>physics</span><strong>{metrics.physicsMs.toFixed(2)} ms</strong></div><div><span>frame</span><strong>{metrics.frameMs.toFixed(2)} ms</strong></div><div><span>projectiles</span><strong>{game.projectiles.length}</strong></div><div><span>events</span><strong>{game.events.length}</strong></div><div><span>zoom</span><strong>{zoom.toFixed(2)}×</strong></div></div>
         </aside>
         <div className="arena-stage">
-          <div className="arena-title"><span className="pulse-dot" /> LOCAL BOT MATCH <span>·</span><span>{Object.values(game.players).length} fighters</span></div>
+          <div className="arena-title"><span className="pulse-dot" /> LOCAL BOT MATCH <span>·</span><span>{Object.values(game.players).length} fighters</span><small>CLIENT {matchId}</small></div>
           <PixiArena game={game} zoom={zoom} preview={preview} onPointerMove={handlePointerMove} onPointerDown={handlePointerDown} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onWheel={handleWheel} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} />
           <div className="arena-legend"><span><i className="legend-dot hazard" /> edge hazard</span><span><i className="legend-dot event" /> wind field</span><span><i className="legend-dot preview" /> preview path</span></div>
         </div>

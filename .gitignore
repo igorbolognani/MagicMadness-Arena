@@ -5,6 +5,7 @@ coverage
 !.openai/
 !.openai/hosting.json
 upload
+generated_images
 .env
 .env.*
 !.env.example

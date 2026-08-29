@@ -11,9 +11,11 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@mma/auth": "workspace:*",
     "@mma/balance": "workspace:*",
     "@mma/content": "workspace:*",
     "@mma/game-core": "workspace:*",
+    "@mma/progression": "workspace:*",
     "@mma/telemetry": "workspace:*",
     "@mma/ui": "workspace:*",
     "pixi.js": "^7.4.2",

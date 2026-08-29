@@ -25,10 +25,20 @@ only through ADRs that preserve the product contract.
 - D4 standard respawn, final-round three-respawn rule, separate score layers,
   causal KO/assist events and results ranking.
 - Local bot path using the same game core as the future authoritative server.
-- React/Vite/PixiJS web surface with public homepage, app shell, profile hero,
-  play route and mobile-landscape live arena.
+- React/Vite/PixiJS web surface with a public game-universe site, real URL
+  routes, authentication boundary, authenticated game launcher, profile,
+  roster, progression, history, friends and collection surfaces.
 - Desktop keyboard/mouse and mobile touch controls, pinch/scroll zoom and
-  diagnostic overlay.
+  diagnostic overlay inside a full-viewport game client.
+- Original high-definition battle key art used by the public site, login,
+  launcher, stage brief and client boot screen.
+- Explicit client boot/loading screen with asset warm-up, Pixi renderer status,
+  deterministic-core status and separate server-authority status.
+- Fullscreen entry from a user gesture with graceful fallback when the browser
+  or hosting surface does not grant fullscreen.
+- Pixi arena presentation upgraded with layered background, arena compass,
+  object silhouettes, shadows, projectile trails, hero glyphs, status rings and
+  Wind Surge telegraph/active visuals.
 - Separate API and WebSocket server deployable boundaries.
 - Strict runtime-validated client input protocol; client position/hit/damage/
   cooldown/RNG/death/respawn/score/economy fields are not accepted as authority.
@@ -36,17 +46,25 @@ only through ADRs that preserve the product contract.
 
 ## Deliberate remaining gaps
 
-The first commit is a dependency-complete playable foundation, not a claim that
-the whole live-service game is finished. The next canonical dependencies are:
+The game client is now a real playable frontend, but this milestone does not
+claim that the whole live-service game is finished. The next canonical
+dependencies are:
 
 1. richer D4 multi-round preparation and objective rules;
 2. D6/D7 authored variation packages and more environmental events;
 3. History stages, mobs and authored bosses;
-4. friend lobbies, reconnect and production server persistence;
+4. friend lobbies, reconnect, production server persistence and a real
+   Sign in with ChatGPT handshake on the target hosting surface;
 5. D8 expanded hero content;
 6. D9 account/talent persistence and inspection;
 7. D10 rune inventory, caps and telemetry;
 8. D11 economy simulation, pity and collection UX after gameplay telemetry.
+
+The current `/match/local/:matchId` route is an honest local/bot client. The
+`/match/history/:stageId` route is a stage brief and local study entry; it does
+not pretend that the Cinder Warden or placeholder bosses are already complete.
+The authenticated session currently persists a development identity in local
+storage when no hosting-provided auth bridge is available.
 
 ## Performance observations
 
@@ -61,13 +79,17 @@ hardware/FPS, memory and heat measurements require a real-device playtest.
   passed; protocol and web unit-test scopes are explicitly empty and pass with
   `--passWithNoTests`.
 - `pnpm build`: passed for every package and app; Vite emitted the Sites-ready
-  root `dist/` static entrypoint.
+  root `dist/` static entrypoint, including the generated battle art asset.
 - `pnpm --filter @mma/web e2e`: test definition is present for desktop and
   mobile landscape, but execution is blocked in this environment because the
   Playwright Chromium binary is not installed and the CDN download timed out.
 - A Sites checkpoint was built and deployment-status verified successfully for
   the public/local-bot surface. The authoritative API/WebSocket services remain
   separate by contract.
+- The current client build emits an 818 kB minified JavaScript chunk because
+  PixiJS and the complete content/game-core slice are shipped together. This is
+  an observed optimization gap; the next safe technical step is route/client
+  code-splitting without changing simulation behavior.
 
 ## Verification policy
 

@@ -26,6 +26,21 @@ function colorForHero(heroId: string): number {
   return hero ? Number.parseInt(hero.color.slice(1), 16) : 0xffffff;
 }
 
+function colorForObject(color: string, fallback = 0xffffff): number {
+  const parsed = Number.parseInt(color.replace("#", ""), 16);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeVector(vector: { x: number; y: number }): { x: number; y: number } {
+  const length = Math.hypot(vector.x, vector.y);
+  return length > 0 ? { x: vector.x / length, y: vector.y / length } : { x: 1, y: 0 };
+}
+
+function elementGlyphForHero(heroId: string): string {
+  const element = heroesById[heroId]?.element;
+  return element === "fire" ? "✦" : element === "water" ? "◒" : element === "earth" ? "⬟" : "◌";
+}
+
 function drawPreview(root: Container, preview: SkillPreview): void {
   const path = new Graphics();
   for (const segment of preview.path) {
@@ -54,15 +69,24 @@ function drawPreview(root: Container, preview: SkillPreview): void {
 
 function drawWorld(root: Container, game: GameState, preview: SkillPreview | null): void {
   root.removeChildren().forEach((child) => child.destroy({ children: true }));
+  const pulse = 0.5 + Math.sin(game.time * 4) * 0.5;
   const background = new Graphics();
-  background.beginFill(0x090d1a);
+  background.beginFill(0x070a13);
   background.drawRect(0, 0, game.arena.width, game.arena.height);
   background.endFill();
-  background.beginFill(0x121d31);
+  background.beginFill(0x0c1426, 1);
   background.drawRect(game.arena.safeMin.x, game.arena.safeMin.y, game.arena.safeMax.x - game.arena.safeMin.x, game.arena.safeMax.y - game.arena.safeMin.y);
+  background.endFill();
+  background.beginFill(0x172541, 0.18);
+  background.drawCircle(game.arena.center.x, game.arena.center.y, 320 + pulse * 18);
+  background.endFill();
+  background.beginFill(0x2a1d43, 0.1);
+  background.drawCircle(game.arena.center.x, game.arena.center.y, 170 + pulse * 9);
   background.endFill();
   background.lineStyle(3, 0xe94d72, 0.58);
   background.drawRect(game.arena.safeMin.x, game.arena.safeMin.y, game.arena.safeMax.x - game.arena.safeMin.x, game.arena.safeMax.y - game.arena.safeMin.y);
+  background.lineStyle(1, 0xf4d35e, 0.23);
+  background.drawRect(game.arena.safeMin.x + 12, game.arena.safeMin.y + 12, game.arena.safeMax.x - game.arena.safeMin.x - 24, game.arena.safeMax.y - game.arena.safeMin.y - 24);
   root.addChild(background);
 
   const grid = new Graphics();
@@ -75,7 +99,28 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
     grid.moveTo(0, y);
     grid.lineTo(game.arena.width, y);
   }
+  for (let x = 80; x < game.arena.width; x += 160) {
+    for (let y = 80; y < game.arena.height; y += 160) {
+      grid.beginFill(0x6d84b6, 0.035);
+      grid.drawRect(x, y, 80, 80);
+      grid.endFill();
+    }
+  }
   root.addChild(grid);
+
+  const compass = new Graphics();
+  compass.lineStyle(2, 0xf4d35e, 0.35);
+  compass.drawCircle(game.arena.center.x, game.arena.center.y, 96);
+  compass.lineStyle(1, 0xf4d35e, 0.27);
+  compass.drawCircle(game.arena.center.x, game.arena.center.y, 70);
+  compass.moveTo(game.arena.center.x - 115, game.arena.center.y);
+  compass.lineTo(game.arena.center.x + 115, game.arena.center.y);
+  compass.moveTo(game.arena.center.x, game.arena.center.y - 115);
+  compass.lineTo(game.arena.center.x, game.arena.center.y + 115);
+  compass.beginFill(0xf4d35e, 0.85);
+  compass.drawCircle(game.arena.center.x, game.arena.center.y, 4);
+  compass.endFill();
+  root.addChild(compass);
 
   const eventGraphic = new Graphics();
   if (game.environmental.phase === "warning") {
@@ -83,6 +128,8 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
     eventGraphic.drawCircle(game.arena.center.x, game.arena.center.y, game.environmental.affectedRadius);
     eventGraphic.lineStyle(2, 0xfff4c1, 0.8);
     eventGraphic.drawCircle(game.arena.center.x, game.arena.center.y, game.environmental.affectedRadius - 20);
+    eventGraphic.lineStyle(2, 0xffd166, 0.35 + pulse * 0.35);
+    eventGraphic.drawCircle(game.arena.center.x, game.arena.center.y, game.environmental.affectedRadius + 18 + pulse * 8);
   } else if (game.environmental.phase === "active") {
     eventGraphic.beginFill(0xa88bff, 0.08);
     eventGraphic.drawCircle(game.arena.center.x, game.arena.center.y, game.environmental.affectedRadius);
@@ -90,50 +137,107 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
     eventGraphic.lineStyle(6, 0xb18cff, 0.38);
     eventGraphic.moveTo(game.arena.center.x - game.environmental.direction.x * 340, game.arena.center.y - game.environmental.direction.y * 340);
     eventGraphic.lineTo(game.arena.center.x + game.environmental.direction.x * 340, game.arena.center.y + game.environmental.direction.y * 340);
+    for (let index = -2; index <= 2; index += 1) {
+      const offset = index * 42;
+      eventGraphic.lineStyle(2, 0xd7cbff, 0.22);
+      eventGraphic.moveTo(game.arena.center.x - game.environmental.direction.x * 340 + offset, game.arena.center.y - game.environmental.direction.y * 340);
+      eventGraphic.lineTo(game.arena.center.x + game.environmental.direction.x * 340 + offset, game.arena.center.y + game.environmental.direction.y * 340);
+    }
   }
   root.addChild(eventGraphic);
 
   const geometry = new Graphics();
   for (const wall of game.arena.walls) {
+    geometry.beginFill(0x02040a, 0.42);
+    geometry.drawRoundedRect(wall.min.x + 9, wall.min.y + 11, wall.max.x - wall.min.x, wall.max.y - wall.min.y, 10);
+    geometry.endFill();
     geometry.beginFill(0x2b3c5f, 1);
     geometry.drawRect(wall.min.x, wall.min.y, wall.max.x - wall.min.x, wall.max.y - wall.min.y);
     geometry.endFill();
     geometry.lineStyle(2, 0x5e79a8, 0.75);
     geometry.drawRect(wall.min.x, wall.min.y, wall.max.x - wall.min.x, wall.max.y - wall.min.y);
+    geometry.lineStyle(1, 0xa7b8df, 0.2);
+    geometry.moveTo(wall.min.x + 12, wall.min.y + 9);
+    geometry.lineTo(wall.max.x - 12, wall.min.y + 9);
   }
   for (const object of game.arena.objects) {
-    geometry.beginFill(Number.parseInt(object.color.slice(1), 16), 1);
+    const objectColor = colorForObject(object.color, 0x53688d);
+    geometry.beginFill(0x02040a, 0.36);
+    geometry.drawRoundedRect(object.min.x + 8, object.min.y + 10, object.max.x - object.min.x, object.max.y - object.min.y, 13);
+    geometry.endFill();
+    geometry.beginFill(objectColor, 1);
     geometry.drawRoundedRect(object.min.x, object.min.y, object.max.x - object.min.x, object.max.y - object.min.y, 12);
     geometry.endFill();
     geometry.lineStyle(2, 0xf4e2c0, 0.32);
     geometry.drawRoundedRect(object.min.x, object.min.y, object.max.x - object.min.x, object.max.y - object.min.y, 12);
+    if (object.kind === "crate") {
+      geometry.lineStyle(2, 0x422a2a, 0.46);
+      geometry.moveTo(object.min.x + 9, object.min.y + 9);
+      geometry.lineTo(object.max.x - 9, object.max.y - 9);
+      geometry.moveTo(object.max.x - 9, object.min.y + 9);
+      geometry.lineTo(object.min.x + 9, object.max.y - 9);
+      geometry.beginFill(0xf4e2c0, 0.6);
+      geometry.drawCircle(object.min.x + 13, object.min.y + 13, 2);
+      geometry.drawCircle(object.max.x - 13, object.max.y - 13, 2);
+      geometry.endFill();
+    } else {
+      geometry.beginFill(0x18213b, 0.82);
+      geometry.moveTo(object.min.x - 8, object.min.y);
+      geometry.lineTo((object.min.x + object.max.x) / 2, object.min.y - 28);
+      geometry.lineTo(object.max.x + 8, object.min.y);
+      geometry.closePath();
+      geometry.endFill();
+      geometry.beginFill(0x0c1223, 0.95);
+      geometry.drawRect((object.min.x + object.max.x) / 2 - 12, object.max.y - 31, 24, 31);
+      geometry.endFill();
+    }
   }
   for (const wall of game.walls) {
-    geometry.beginFill(Number.parseInt(wall.color.slice(1), 16), 0.92);
+    geometry.beginFill(0x02040a, 0.34);
+    geometry.drawRoundedRect(wall.min.x + 7, wall.min.y + 9, wall.max.x - wall.min.x, wall.max.y - wall.min.y, 9);
+    geometry.endFill();
+    geometry.beginFill(colorForObject(wall.color, 0xb18cff), 0.92);
     geometry.drawRoundedRect(wall.min.x, wall.min.y, wall.max.x - wall.min.x, wall.max.y - wall.min.y, 8);
     geometry.endFill();
     geometry.lineStyle(2, 0xffffff, 0.35);
     geometry.drawRoundedRect(wall.min.x, wall.min.y, wall.max.x - wall.min.x, wall.max.y - wall.min.y, 8);
+    geometry.lineStyle(1, 0xffffff, 0.26);
+    geometry.moveTo(wall.min.x + 9, wall.min.y + 8);
+    geometry.lineTo(wall.max.x - 9, wall.min.y + 8);
   }
   root.addChild(geometry);
 
   for (const field of game.fields) {
     const fieldGraphic = new Graphics();
+    fieldGraphic.beginFill(0x02040a, 0.24);
+    fieldGraphic.drawCircle(field.position.x + 7, field.position.y + 9, field.radius);
+    fieldGraphic.endFill();
     fieldGraphic.beginFill(elementColor(field.element), 0.16);
     fieldGraphic.drawCircle(field.position.x, field.position.y, field.radius);
     fieldGraphic.endFill();
     fieldGraphic.lineStyle(2, elementColor(field.element), 0.72);
     fieldGraphic.drawCircle(field.position.x, field.position.y, field.radius);
+    fieldGraphic.lineStyle(1, elementColor(field.element), 0.32);
+    fieldGraphic.drawCircle(field.position.x, field.position.y, field.radius * 0.72);
+    fieldGraphic.moveTo(field.position.x - field.radius, field.position.y);
+    fieldGraphic.lineTo(field.position.x + field.radius, field.position.y);
     root.addChild(fieldGraphic);
   }
 
   for (const projectile of game.projectiles) {
     const projectileGraphic = new Graphics();
+    const projectileDirection = normalizeVector(projectile.velocity);
+    projectileGraphic.lineStyle(Math.max(3, projectile.radius * 0.55), elementColor(projectile.element), 0.22);
+    projectileGraphic.moveTo(projectile.position.x - projectileDirection.x * 38, projectile.position.y - projectileDirection.y * 38);
+    projectileGraphic.lineTo(projectile.position.x, projectile.position.y);
     projectileGraphic.beginFill(elementColor(projectile.element), 0.95);
     projectileGraphic.drawCircle(projectile.position.x, projectile.position.y, projectile.radius);
     projectileGraphic.endFill();
     projectileGraphic.lineStyle(3, 0xffffff, 0.7);
     projectileGraphic.drawCircle(projectile.position.x, projectile.position.y, projectile.radius + 3);
+    projectileGraphic.beginFill(0xffffff, 0.75);
+    projectileGraphic.drawCircle(projectile.position.x - projectileDirection.x * projectile.radius * 0.35, projectile.position.y - projectileDirection.y * projectile.radius * 0.35, Math.max(2, projectile.radius * 0.22));
+    projectileGraphic.endFill();
     root.addChild(projectileGraphic);
   }
 
@@ -141,11 +245,21 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
     if (!player.alive) continue;
     const heroGraphic = new Graphics();
     const heroColor = colorForHero(player.heroId);
+    heroGraphic.beginFill(0x02040a, 0.42);
+    heroGraphic.drawEllipse(player.position.x + 7, player.position.y + 10, player.radius * 1.08, player.radius * 0.72);
+    heroGraphic.endFill();
+    if (player.id === "player") {
+      heroGraphic.lineStyle(2, 0xffffff, 0.18 + pulse * 0.17);
+      heroGraphic.drawCircle(player.position.x, player.position.y, player.radius + 16 + pulse * 4);
+    }
     heroGraphic.beginFill(heroColor, 1);
     heroGraphic.drawCircle(player.position.x, player.position.y, player.radius);
     heroGraphic.endFill();
     heroGraphic.lineStyle(player.id === "player" ? 5 : 3, player.id === "player" ? 0xffffff : 0x101526, 0.95);
     heroGraphic.drawCircle(player.position.x, player.position.y, player.radius);
+    heroGraphic.beginFill(0xffffff, 0.21);
+    heroGraphic.drawCircle(player.position.x - player.radius * 0.28, player.position.y - player.radius * 0.31, player.radius * 0.36);
+    heroGraphic.endFill();
     const aim = player.input.aim;
     heroGraphic.lineStyle(4, 0xffffff, 0.8);
     heroGraphic.moveTo(player.position.x, player.position.y);
@@ -156,7 +270,11 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
       heroGraphic.lineStyle(4, burning ? 0xffa63d : 0x8fe7ff, 0.95);
       heroGraphic.drawCircle(player.position.x, player.position.y, player.radius + 9);
     }
+    const heroGlyph = new Text(elementGlyphForHero(player.heroId), new TextStyle({ fontFamily: "Arial", fontSize: 18, fill: 0xffffff, fontWeight: "bold", align: "center" }));
+    heroGlyph.anchor.set(0.5);
+    heroGlyph.position.set(player.position.x, player.position.y + 1);
     root.addChild(heroGraphic);
+    root.addChild(heroGlyph);
     const label = new Text(player.name, new TextStyle({ fontFamily: "Arial", fontSize: 16, fill: 0xffffff, stroke: 0x080b16, strokeThickness: 4, align: "center" }));
     label.anchor.set(0.5);
     label.position.set(player.position.x, player.position.y - player.radius - 16);
@@ -166,7 +284,7 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
     hp.drawRoundedRect(player.position.x - 28, player.position.y + player.radius + 8, 56, 6, 3);
     hp.endFill();
     hp.beginFill(player.hp > player.maxHp * 0.35 ? 0x4de1a7 : 0xff5277, 1);
-    hp.drawRoundedRect(player.position.x - 28, player.position.y + player.radius + 8, 56 * (player.hp / player.maxHp), 6, 3);
+    hp.drawRoundedRect(player.position.x - 28, player.position.y + player.radius + 8, 56 * Math.max(0, Math.min(1, player.hp / player.maxHp)), 6, 3);
     hp.endFill();
     root.addChild(hp);
   }

@@ -11,7 +11,12 @@ ADR and must preserve the game contract.
 The first vertical slice lives in apps/web and uses the shared
 packages/game-core simulation locally against deterministic bots. It includes:
 
-- public homepage and authenticated-style app shell;
+- public game-universe site with `/`, `/how-it-works`, `/heroes`, `/elements`,
+  `/modes`, `/world`, `/news` and `/login` routes;
+- authenticated game client shell at `/game/*` with launcher, profile, play,
+  history, heroes, talents, runes, friends and collection routes;
+- fullscreen-capable local match client at `/match/local/:matchId` with a
+  boot screen, rendered arena HUD and result screen;
 - Fire, Water, Earth and Air starter heroes;
 - fixed-step movement, aim, hold-to-preview and release-to-cast;
 - damage, knockback, wall/object collision and edge hazard;
@@ -24,6 +29,11 @@ packages/game-core simulation locally against deterministic bots. It includes:
 
 The server/API packages are separate deployable boundaries. The local bot path
 uses the same game core that the authoritative server will use.
+
+The current Site build is intentionally honest about its boundary: local bot
+play is playable in the browser, while competitive authority remains on the
+separate WebSocket server. See `docs/implementation-status.md` for the exact
+verified status and remaining production dependencies.
 
 ## Commands
 
