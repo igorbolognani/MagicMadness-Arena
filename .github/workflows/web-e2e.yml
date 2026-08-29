@@ -6,10 +6,12 @@ on:
     paths:
       - "apps/web/**"
       - "packages/**"
+      - ".github/workflows/web-e2e.yml"
   pull_request:
     paths:
       - "apps/web/**"
       - "packages/**"
+      - ".github/workflows/web-e2e.yml"
 
 jobs:
   e2e:
