@@ -39,6 +39,8 @@ only through ADRs that preserve the product contract.
 - Pixi arena presentation upgraded with layered background, arena compass,
   object silhouettes, shadows, projectile trails, hero glyphs, status rings and
   Wind Surge telegraph/active visuals.
+- Native Canvas 2D fallback at the renderer boundary keeps the same arena
+  state and controls playable when a browser cannot initialize WebGL.
 - Separate API and WebSocket server deployable boundaries.
 - Strict runtime-validated client input protocol; client position/hit/damage/
   cooldown/RNG/death/respawn/score/economy fields are not accepted as authority.

@@ -54,6 +54,13 @@ remains code-rendered through Pixi from authoritative `GameState`. Visual art
 cannot become a gameplay input or balance source; the deterministic simulation
 continues to use versioned content and balance packages.
 
+### T008 — Renderer fallback at the game-client boundary
+
+PixiJS remains the preferred live renderer. If WebGL cannot be initialized on a
+browser or hosted surface, the same `GameState` is rendered through a native
+Canvas 2D fallback on the existing game canvas. This preserves a real playable
+client and input surface without changing simulation, scoring or authority.
+
 ## Change rule
 
 Any technical change that changes authority, simulation ordering, content

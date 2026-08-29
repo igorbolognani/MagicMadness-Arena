@@ -67,6 +67,263 @@ function drawPreview(root: Container, preview: SkillPreview): void {
   root.addChild(path);
 }
 
+function canvasHex(color: number): string {
+  return `#${color.toString(16).padStart(6, "0")}`;
+}
+
+function canvasRoundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + safeRadius, y);
+  context.lineTo(x + width - safeRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  context.lineTo(x + width, y + height - safeRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  context.lineTo(x + safeRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  context.lineTo(x, y + safeRadius);
+  context.quadraticCurveTo(x, y, x + safeRadius, y);
+  context.closePath();
+}
+
+function drawCanvasWorld(
+  context: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  game: GameState,
+  preview: SkillPreview | null,
+  zoom: number,
+): void {
+  const width = canvas.clientWidth || 800;
+  const height = canvas.clientHeight || 450;
+  const resolution = Math.min(window.devicePixelRatio || 1, 2);
+  const pixelWidth = Math.max(1, Math.round(width * resolution));
+  const pixelHeight = Math.max(1, Math.round(height * resolution));
+  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+    canvas.width = pixelWidth;
+    canvas.height = pixelHeight;
+  }
+  context.setTransform(resolution, 0, 0, resolution, 0, 0);
+  context.clearRect(0, 0, width, height);
+
+  const worldScale = Math.min(width / game.arena.width, height / game.arena.height) * zoom;
+  context.save();
+  context.translate(width / 2 - (game.arena.width * worldScale) / 2, height / 2 - (game.arena.height * worldScale) / 2);
+  context.scale(worldScale, worldScale);
+  const pulse = 0.5 + Math.sin(game.time * 4) * 0.5;
+
+  context.fillStyle = "#070a13";
+  context.fillRect(0, 0, game.arena.width, game.arena.height);
+  context.fillStyle = "#0c1426";
+  context.fillRect(game.arena.safeMin.x, game.arena.safeMin.y, game.arena.safeMax.x - game.arena.safeMin.x, game.arena.safeMax.y - game.arena.safeMin.y);
+  const atmosphere = context.createRadialGradient(game.arena.center.x, game.arena.center.y, 30, game.arena.center.x, game.arena.center.y, 360);
+  atmosphere.addColorStop(0, "rgba(72, 52, 112, .26)");
+  atmosphere.addColorStop(1, "rgba(23, 37, 65, 0)");
+  context.fillStyle = atmosphere;
+  context.fillRect(0, 0, game.arena.width, game.arena.height);
+  context.strokeStyle = "rgba(233, 77, 114, .62)";
+  context.lineWidth = 3;
+  context.strokeRect(game.arena.safeMin.x, game.arena.safeMin.y, game.arena.safeMax.x - game.arena.safeMin.x, game.arena.safeMax.y - game.arena.safeMin.y);
+
+  context.strokeStyle = "rgba(37, 51, 78, .3)";
+  context.lineWidth = 1;
+  for (let x = 80; x < game.arena.width; x += 80) {
+    context.beginPath();
+    context.moveTo(x, 0);
+    context.lineTo(x, game.arena.height);
+    context.stroke();
+  }
+  for (let y = 80; y < game.arena.height; y += 80) {
+    context.beginPath();
+    context.moveTo(0, y);
+    context.lineTo(game.arena.width, y);
+    context.stroke();
+  }
+  context.strokeStyle = "rgba(244, 211, 94, .34)";
+  context.beginPath();
+  context.arc(game.arena.center.x, game.arena.center.y, 96, 0, Math.PI * 2);
+  context.stroke();
+  context.beginPath();
+  context.arc(game.arena.center.x, game.arena.center.y, 70, 0, Math.PI * 2);
+  context.moveTo(game.arena.center.x - 115, game.arena.center.y);
+  context.lineTo(game.arena.center.x + 115, game.arena.center.y);
+  context.moveTo(game.arena.center.x, game.arena.center.y - 115);
+  context.lineTo(game.arena.center.x, game.arena.center.y + 115);
+  context.stroke();
+  context.fillStyle = "#f4d35e";
+  context.beginPath();
+  context.arc(game.arena.center.x, game.arena.center.y, 4, 0, Math.PI * 2);
+  context.fill();
+
+  if (game.environmental.phase === "warning") {
+    context.strokeStyle = `rgba(255, 209, 102, ${0.34 + pulse * 0.2})`;
+    context.lineWidth = 8;
+    context.beginPath();
+    context.arc(game.arena.center.x, game.arena.center.y, game.environmental.affectedRadius + pulse * 8, 0, Math.PI * 2);
+    context.stroke();
+    context.strokeStyle = "rgba(255, 244, 193, .82)";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(game.arena.center.x, game.arena.center.y, game.environmental.affectedRadius - 20, 0, Math.PI * 2);
+    context.stroke();
+  } else if (game.environmental.phase === "active") {
+    context.fillStyle = "rgba(168, 139, 255, .09)";
+    context.beginPath();
+    context.arc(game.arena.center.x, game.arena.center.y, game.environmental.affectedRadius, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = "rgba(177, 140, 255, .45)";
+    context.lineWidth = 6;
+    context.beginPath();
+    context.moveTo(game.arena.center.x - game.environmental.direction.x * 340, game.arena.center.y - game.environmental.direction.y * 340);
+    context.lineTo(game.arena.center.x + game.environmental.direction.x * 340, game.arena.center.y + game.environmental.direction.y * 340);
+    context.stroke();
+  }
+
+  for (const wall of game.arena.walls) {
+    context.fillStyle = "rgba(2, 4, 10, .5)";
+    canvasRoundedRect(context, wall.min.x + 9, wall.min.y + 11, wall.max.x - wall.min.x, wall.max.y - wall.min.y, 10);
+    context.fill();
+    context.fillStyle = "#2b3c5f";
+    context.fillRect(wall.min.x, wall.min.y, wall.max.x - wall.min.x, wall.max.y - wall.min.y);
+    context.strokeStyle = "rgba(167, 184, 223, .7)";
+    context.lineWidth = 2;
+    context.strokeRect(wall.min.x, wall.min.y, wall.max.x - wall.min.x, wall.max.y - wall.min.y);
+  }
+  for (const object of game.arena.objects) {
+    context.fillStyle = "rgba(2, 4, 10, .42)";
+    canvasRoundedRect(context, object.min.x + 8, object.min.y + 10, object.max.x - object.min.x, object.max.y - object.min.y, 12);
+    context.fill();
+    context.fillStyle = canvasHex(colorForObject(object.color, 0x53688d));
+    canvasRoundedRect(context, object.min.x, object.min.y, object.max.x - object.min.x, object.max.y - object.min.y, 12);
+    context.fill();
+    context.strokeStyle = "rgba(244, 226, 192, .45)";
+    context.lineWidth = 2;
+    context.stroke();
+    if (object.kind === "crate") {
+      context.strokeStyle = "rgba(66, 42, 42, .64)";
+      context.beginPath();
+      context.moveTo(object.min.x + 9, object.min.y + 9);
+      context.lineTo(object.max.x - 9, object.max.y - 9);
+      context.moveTo(object.max.x - 9, object.min.y + 9);
+      context.lineTo(object.min.x + 9, object.max.y - 9);
+      context.stroke();
+    }
+  }
+  for (const wall of game.walls) {
+    context.fillStyle = canvasHex(colorForObject(wall.color, 0xb18cff));
+    context.globalAlpha = 0.92;
+    canvasRoundedRect(context, wall.min.x, wall.min.y, wall.max.x - wall.min.x, wall.max.y - wall.min.y, 8);
+    context.fill();
+    context.globalAlpha = 1;
+    context.strokeStyle = "rgba(255, 255, 255, .4)";
+    context.lineWidth = 2;
+    context.stroke();
+  }
+
+  for (const field of game.fields) {
+    context.fillStyle = "rgba(2, 4, 10, .28)";
+    context.beginPath();
+    context.arc(field.position.x + 7, field.position.y + 9, field.radius, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = canvasHex(elementColor(field.element));
+    context.globalAlpha = 0.18;
+    context.beginPath();
+    context.arc(field.position.x, field.position.y, field.radius, 0, Math.PI * 2);
+    context.fill();
+    context.globalAlpha = 0.75;
+    context.lineWidth = 2;
+    context.strokeStyle = canvasHex(elementColor(field.element));
+    context.stroke();
+    context.globalAlpha = 1;
+  }
+
+  for (const projectile of game.projectiles) {
+    const direction = normalizeVector(projectile.velocity);
+    context.strokeStyle = canvasHex(elementColor(projectile.element));
+    context.globalAlpha = 0.25;
+    context.lineWidth = Math.max(3, projectile.radius * 0.55);
+    context.beginPath();
+    context.moveTo(projectile.position.x - direction.x * 38, projectile.position.y - direction.y * 38);
+    context.lineTo(projectile.position.x, projectile.position.y);
+    context.stroke();
+    context.globalAlpha = 0.95;
+    context.fillStyle = canvasHex(elementColor(projectile.element));
+    context.beginPath();
+    context.arc(projectile.position.x, projectile.position.y, projectile.radius, 0, Math.PI * 2);
+    context.fill();
+    context.globalAlpha = 1;
+  }
+
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  for (const player of Object.values(game.players)) {
+    if (!player.alive) continue;
+    const color = canvasHex(colorForHero(player.heroId));
+    context.fillStyle = "rgba(2, 4, 10, .48)";
+    context.beginPath();
+    context.ellipse(player.position.x + 7, player.position.y + 10, player.radius * 1.08, player.radius * 0.72, 0, 0, Math.PI * 2);
+    context.fill();
+    if (player.id === "player") {
+      context.strokeStyle = `rgba(255, 255, 255, ${0.2 + pulse * 0.18})`;
+      context.lineWidth = 2;
+      context.beginPath();
+      context.arc(player.position.x, player.position.y, player.radius + 16 + pulse * 4, 0, Math.PI * 2);
+      context.stroke();
+    }
+    context.fillStyle = color;
+    context.beginPath();
+    context.arc(player.position.x, player.position.y, player.radius, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = player.id === "player" ? "#ffffff" : "#101526";
+    context.lineWidth = player.id === "player" ? 5 : 3;
+    context.stroke();
+    context.fillStyle = "rgba(255,255,255,.23)";
+    context.beginPath();
+    context.arc(player.position.x - player.radius * 0.28, player.position.y - player.radius * 0.31, player.radius * 0.36, 0, Math.PI * 2);
+    context.fill();
+    const aim = normalizeVector(player.input.aim);
+    context.strokeStyle = "rgba(255,255,255,.8)";
+    context.lineWidth = 4;
+    context.beginPath();
+    context.moveTo(player.position.x, player.position.y);
+    context.lineTo(player.position.x + aim.x * (player.radius + 14), player.position.y + aim.y * (player.radius + 14));
+    context.stroke();
+    context.fillStyle = "#ffffff";
+    context.font = "bold 18px Arial";
+    context.fillText(elementGlyphForHero(player.heroId), player.position.x, player.position.y + 1);
+    context.font = "16px Arial";
+    context.strokeStyle = "#080b16";
+    context.lineWidth = 4;
+    context.strokeText(player.name, player.position.x, player.position.y - player.radius - 16);
+    context.fillStyle = "#ffffff";
+    context.fillText(player.name, player.position.x, player.position.y - player.radius - 16);
+    context.fillStyle = "rgba(22, 28, 43, .9)";
+    canvasRoundedRect(context, player.position.x - 28, player.position.y + player.radius + 8, 56, 6, 3);
+    context.fill();
+    context.fillStyle = player.hp > player.maxHp * 0.35 ? "#4de1a7" : "#ff5277";
+    canvasRoundedRect(context, player.position.x - 28, player.position.y + player.radius + 8, 56 * Math.max(0, Math.min(1, player.hp / player.maxHp)), 6, 3);
+    context.fill();
+  }
+
+  if (preview) {
+    for (const segment of preview.path) {
+      context.strokeStyle = segment.certainty === "certain" ? "#ffffff" : segment.certainty === "predicted" ? "#ffd166" : "#ff6b9d";
+      context.globalAlpha = 0.8;
+      context.lineWidth = 3;
+      context.beginPath();
+      context.moveTo(segment.from.x, segment.from.y);
+      context.lineTo(segment.to.x, segment.to.y);
+      context.stroke();
+    }
+    context.globalAlpha = 1;
+    context.strokeStyle = "#ffffff";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(preview.impact.x, preview.impact.y, Math.max(12, preview.radius), 0, Math.PI * 2);
+    context.stroke();
+  }
+  context.restore();
+}
+
 function drawWorld(root: Container, game: GameState, preview: SkillPreview | null): void {
   root.removeChildren().forEach((child) => child.destroy({ children: true }));
   const pulse = 0.5 + Math.sin(game.time * 4) * 0.5;
@@ -296,34 +553,62 @@ export function PixiArena(props: PixiArenaProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<Application | null>(null);
   const worldRef = useRef<Container | null>(null);
+  const canvasContextRef = useRef<CanvasRenderingContext2D | null>(null);
+  const fallbackRef = useRef(false);
+  const propsRef = useRef(props);
+  propsRef.current = props;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
-    const app = new Application({
-      view: canvas,
-      antialias: true,
-      backgroundAlpha: 0,
-      autoDensity: true,
-      resolution: Math.min(window.devicePixelRatio || 1, 2),
-    });
-    const world = new Container();
-    app.stage.addChild(world);
-    appRef.current = app;
-    worldRef.current = world;
+    let app: Application | null = null;
+    try {
+      app = new Application({
+        view: canvas,
+        antialias: true,
+        backgroundAlpha: 0,
+        autoDensity: true,
+        resolution: Math.min(window.devicePixelRatio || 1, 2),
+      });
+      const world = new Container();
+      app.stage.addChild(world);
+      appRef.current = app;
+      worldRef.current = world;
+      fallbackRef.current = false;
+    } catch {
+      fallbackRef.current = true;
+      canvasContextRef.current = canvas.getContext("2d");
+    }
     const resize = () => {
       const width = canvas.clientWidth || 800;
       const height = canvas.clientHeight || 450;
-      app.renderer.resize(width, height);
+      if (app && !fallbackRef.current) {
+        try {
+          app.renderer.resize(width, height);
+        } catch {
+          fallbackRef.current = true;
+          canvasContextRef.current = canvas.getContext("2d");
+        }
+      }
+      if (fallbackRef.current && canvasContextRef.current) {
+        drawCanvasWorld(canvasContextRef.current, canvas, propsRef.current.game, propsRef.current.preview, propsRef.current.zoom);
+      }
     };
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
     return () => {
       observer.disconnect();
-      app.destroy(true, { children: true, texture: false, baseTexture: false });
+      if (app) {
+        try {
+          app.destroy(true, { children: true, texture: false, baseTexture: false });
+        } catch {
+          // A partially initialized WebGL renderer may not have a destroyable context.
+        }
+      }
       appRef.current = null;
       worldRef.current = null;
+      canvasContextRef.current = null;
     };
   }, []);
 
@@ -331,17 +616,35 @@ export function PixiArena(props: PixiArenaProps) {
     const app = appRef.current;
     const world = worldRef.current;
     const canvas = canvasRef.current;
-    if (!app || !world || !canvas) return;
+    if (!canvas) return;
     const width = canvas.clientWidth || 800;
     const height = canvas.clientHeight || 450;
-    app.renderer.resize(width, height);
-    const worldScale = Math.min(width / props.game.arena.width, height / props.game.arena.height) * props.zoom;
-    world.scale.set(worldScale);
-    world.position.set(
-      width / 2 - (props.game.arena.width * worldScale) / 2,
-      height / 2 - (props.game.arena.height * worldScale) / 2,
-    );
-    drawWorld(world, props.game, props.preview);
+    if (app && world && !fallbackRef.current) {
+      try {
+        app.renderer.resize(width, height);
+        const worldScale = Math.min(width / props.game.arena.width, height / props.game.arena.height) * props.zoom;
+        world.scale.set(worldScale);
+        world.position.set(
+          width / 2 - (props.game.arena.width * worldScale) / 2,
+          height / 2 - (props.game.arena.height * worldScale) / 2,
+        );
+        drawWorld(world, props.game, props.preview);
+        return;
+      } catch {
+        fallbackRef.current = true;
+        canvasContextRef.current = canvas.getContext("2d");
+        try {
+          app.destroy(true, { children: true, texture: false, baseTexture: false });
+        } catch {
+          // Fall through to the native canvas renderer.
+        }
+        appRef.current = null;
+        worldRef.current = null;
+      }
+    }
+    if (canvasContextRef.current) {
+      drawCanvasWorld(canvasContextRef.current, canvas, props.game, props.preview, props.zoom);
+    }
   }, [props.game, props.preview, props.zoom]);
 
   return (
