@@ -38,6 +38,19 @@ test("public homepage reaches the local bot match", async ({ page }) => {
   await page.waitForTimeout(120);
   await page.mouse.up();
   await expect(page.locator(".event-log")).toContainText(/CAST START|INPUT ACCEPTED/i);
+
+  const aimStick = page.getByTestId("aim-stick");
+  const aimBox = await aimStick.boundingBox();
+  if (!aimBox) throw new Error("Aim stick did not have a layout box");
+  await page.mouse.move(aimBox.x + aimBox.width / 2, aimBox.y + aimBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(aimBox.x + 8, aimBox.y + aimBox.height / 2, { steps: 3 });
+  await page.mouse.up();
+  await expect(page.locator(".aim-readout")).toHaveText("AIM 180°");
+
+  await page.getByRole("button", { name: "Pause match" }).click();
+  await expect(page.getByRole("status")).toContainText("MATCH PAUSED");
+  await page.getByRole("button", { name: "Resume match" }).click();
 });
 
 test("public universe pages keep separate routes", async ({ page }) => {
