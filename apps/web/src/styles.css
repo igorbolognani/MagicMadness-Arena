@@ -725,6 +725,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #f4d35e; outline-offs
   box-shadow: 0 12px 34px rgba(0,0,0,.2);
 }
 .arena-title small { display: none; }
+.aim-readout { color: #f4d35e; font-weight: 800; letter-spacing: .12em; }
 .arena-legend {
   left: 50%;
   top: 78px;
