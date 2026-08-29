@@ -58,12 +58,14 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
   const [game, setGame] = useState<GameState>(() => structuredClone(gameRef.current));
   const [heldSkill, setHeldSkill] = useState<SkillIndex | null>(null);
   const [aim, setAim] = useState({ x: 1, y: 0 });
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(1.06);
+  const [paused, setPaused] = useState(false);
   const [metrics, setMetrics] = useState({ frameMs: 0, physicsMs: 0 });
   const commandRef = useRef<InputCommand>({ playerId: "player", move: { x: 0, y: 0 }, aim: { x: 1, y: 0 } });
   const keysRef = useRef(new Set<string>());
   const telemetryRef = useRef(new MemoryTelemetry());
   const canvasCastingRef = useRef(false);
+  const pausedRef = useRef(false);
   const heldSkillRef = useRef<SkillIndex | null>(null);
   const movementPointerRef = useRef<number | null>(null);
   const aimPointerRef = useRef<number | null>(null);
@@ -82,6 +84,10 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
   }, [heldSkill]);
 
   useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
+
+  useEffect(() => {
     let frame = 0;
     let previous = performance.now();
     let accumulator = 0;
@@ -98,11 +104,13 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
       const move = Math.abs(keyboardMove.x) + Math.abs(keyboardMove.y) > 0 ? keyboardMove : touchMoveRef.current;
       commandRef.current = { ...commandRef.current, move };
       const physicsStarted = performance.now();
-      while (accumulator >= FIXED_STEP_SECONDS) {
-        const command = { ...commandRef.current, move: { ...commandRef.current.move }, aim: { ...commandRef.current.aim } };
-        stepMatch(gameRef.current, [command]);
-        commandRef.current = { playerId: "player", move, aim: { ...command.aim } };
-        accumulator -= FIXED_STEP_SECONDS;
+      if (!pausedRef.current) {
+        while (accumulator >= FIXED_STEP_SECONDS) {
+          const command = { ...commandRef.current, move: { ...commandRef.current.move }, aim: { ...commandRef.current.aim } };
+          stepMatch(gameRef.current, [command]);
+          commandRef.current = { playerId: "player", move, aim: { ...command.aim } };
+          accumulator -= FIXED_STEP_SECONDS;
+        }
       }
       const physicsMs = performance.now() - physicsStarted;
       const frameMs = performance.now() - frameStarted;
@@ -301,7 +309,7 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
         <button className="game-brand" onClick={onExit}><span className="brand-mark">MM</span><span>MagicMadness</span></button>
         <div className="round-readout"><span className="mini-label">ROUND {game.round}</span><strong>{Math.max(0, 120 - Math.floor(game.time))}s</strong><small>{game.mode === "final" ? "FINAL · 3 respawns" : "STANDARD · 1 respawn"}</small></div>
         <div className="event-readout"><span className={"event-dot " + game.environmental.phase} /><span><small>ARENA PERSONALITY</small><strong>{game.environmental.name}</strong></span><em>{game.environmental.phase === "active" ? "ACTIVE" : game.environmental.phase === "warning" ? "TELEGRAPH" : Math.ceil(game.environmental.remaining) + "s"}</em></div>
-        <button className="fullscreen-button" aria-label="Enter fullscreen" title="Enter fullscreen" onClick={requestGameFullscreen}>⛶</button><button className="exit-button" onClick={onExit}>Exit</button>
+        <button className="fullscreen-button" aria-label="Enter fullscreen" title="Enter fullscreen" onClick={requestGameFullscreen}>⛶</button><button className="pause-button" aria-label={paused ? "Resume match" : "Pause match"} title={paused ? "Resume match" : "Pause match"} onClick={() => setPaused((value) => !value)}>{paused ? "▶" : "Ⅱ"}</button><button className="exit-button" onClick={onExit}>Exit</button>
       </header>
       <section className="game-body">
         <aside className="game-rail left-rail">
@@ -325,6 +333,7 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
           <div className="utility-row"><button className="utility-button dash-button" onPointerDown={() => fireOneShot("dash")}><strong>⇢</strong><small>DASH · SPACE</small><em>{player.tacticalCooldown > 0 ? player.tacticalCooldown.toFixed(1) : "READY"}</em></button><button className="utility-button" onPointerDown={() => fireOneShot("healthPotion")}><strong>♥</strong><small>HEALTH · Q</small></button><button className="utility-button" onPointerDown={() => fireOneShot("manaPotion")}><strong>◈</strong><small>MANA · E</small></button></div>
           </div>
       </section>
+      {paused && <div className="paused-banner" role="status"><strong>MATCH PAUSED</strong><span>Press the pause button to resume</span></div>}
       {game.phase === "results" && game.result && <div className="result-overlay"><div className="result-panel"><p className="eyebrow">MATCH COMPLETE</p><h1>{game.result.winnerId === "player" ? "Arena won." : "The arena remembers."}</h1><p>Match Score decides placement. Performance Score records how you created the result.</p><div className="result-table">{game.result.rankings.map((row) => <div className={"result-row " + (row.playerId === "player" ? "self" : "")} key={row.playerId}><span>#{row.placement}</span><strong>{game.players[row.playerId]?.name ?? row.playerId}</strong><small>match {row.matchScore} · performance {row.performanceScore}</small></div>)}</div><div className="result-actions"><button className="primary-button" onClick={() => { gameRef.current = createMatch({ seed: 20260829 + game.tick, playerHeroId: heroId, botCount: 3 }); setGame(structuredClone(gameRef.current)); }}>Play again <span>↗</span></button><button className="outline-button" onClick={() => { startFinalRound(gameRef.current); setGame(structuredClone(gameRef.current)); }}>Try final-round rules</button><button className="text-link" onClick={onExit}>Return to app</button></div></div></div>}
       {heldSkill !== null && preview && <div className="preview-hint">RELEASE TO CAST · {getHeroSkill(hero.id, heldSkill).name.toUpperCase()} · {preview.geometry.kind.toUpperCase()}</div>}
     </main>
