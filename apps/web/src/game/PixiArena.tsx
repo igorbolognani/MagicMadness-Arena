@@ -129,6 +129,16 @@ function drawCastBursts(root: Container, game: GameState): void {
       burst.endFill();
       burst.drawCircle(event.position.x, event.position.y, 12 + age * 1.6);
     }
+    const sparkCount = tuning.behavior === "field" || tuning.behavior === "radial" ? 10 : 6;
+    burst.lineStyle(2, 0xffffff, alpha * 0.46);
+    for (let sparkIndex = 0; sparkIndex < sparkCount; sparkIndex += 1) {
+      const angle = event.sequence * 0.17 + sparkIndex * Math.PI * 2 / sparkCount;
+      const sparkOrigin = target;
+      const inner = 10 + age * 1.4;
+      const outer = inner + 13 + age * 2.5;
+      burst.moveTo(sparkOrigin.x + Math.cos(angle) * inner, sparkOrigin.y + Math.sin(angle) * inner);
+      burst.lineTo(sparkOrigin.x + Math.cos(angle) * outer, sparkOrigin.y + Math.sin(angle) * outer);
+    }
     root.addChild(burst);
   }
 }
@@ -151,6 +161,11 @@ function drawCombatImpacts(root: Container, game: GameState): void {
       ? elementColor(sourceSkill.element)
       : 0xffffff;
     const impact = new Graphics();
+    if (event.type === "DAMAGE") {
+      impact.beginFill(0xffffff, alpha * 0.16);
+      impact.drawCircle(position.x, position.y, 13 + age * 1.8);
+      impact.endFill();
+    }
     impact.lineStyle(event.type === "DAMAGE" ? 3 : 2, color, alpha * 0.9);
     impact.drawCircle(position.x, position.y, 10 + age * 2.7);
     const spokes = event.type === "DAMAGE" ? 6 : 4;
@@ -473,6 +488,18 @@ function drawCanvasWorld(
       context.arc(event.position.x, event.position.y, 12 + age * 1.6, 0, Math.PI * 2);
       context.stroke();
     }
+    const sparkCount = tuning.behavior === "field" || tuning.behavior === "radial" ? 10 : 6;
+    context.strokeStyle = "rgba(255,255,255,.46)";
+    context.lineWidth = 2;
+    for (let sparkIndex = 0; sparkIndex < sparkCount; sparkIndex += 1) {
+      const angle = event.sequence * 0.17 + sparkIndex * Math.PI * 2 / sparkCount;
+      const inner = 10 + age * 1.4;
+      const outer = inner + 13 + age * 2.5;
+      context.beginPath();
+      context.moveTo(target.x + Math.cos(angle) * inner, target.y + Math.sin(angle) * inner);
+      context.lineTo(target.x + Math.cos(angle) * outer, target.y + Math.sin(angle) * outer);
+      context.stroke();
+    }
     context.globalAlpha = 1;
   }
 
@@ -486,6 +513,12 @@ function drawCanvasWorld(
     const color = sourceSkill
       ? canvasHex(elementColor(sourceSkill.element))
       : "#ffffff";
+    if (event.type === "DAMAGE") {
+      context.fillStyle = "rgba(255,255,255,.16)";
+      context.beginPath();
+      context.arc(position.x, position.y, 13 + age * 1.8, 0, Math.PI * 2);
+      context.fill();
+    }
     context.strokeStyle = color;
     context.globalAlpha = alpha * 0.9;
     context.lineWidth = event.type === "DAMAGE" ? 3 : 2;
