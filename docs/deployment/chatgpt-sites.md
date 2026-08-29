@@ -1,8 +1,9 @@
 # ChatGPT Sites Deployment Boundary
 
-The web package is a standard Vite build with a static entry point in
-apps/web/dist. It is suitable for a public homepage, authenticated-style app
-shell and local bot gameplay in a Sites-compatible frontend deployment.
+The web package is a standard Vite build with a static entry point in the
+monorepo-root `dist/` directory. It is suitable for a public homepage,
+authenticated-style app shell and local bot gameplay in a Sites-compatible
+frontend deployment.
 
 The future production topology must keep:
 

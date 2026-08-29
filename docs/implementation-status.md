@@ -51,6 +51,21 @@ No production device benchmark is asserted yet. The local renderer is
 instrumented at the domain level and targets a 60 Hz fixed simulation. Mobile
 hardware/FPS, memory and heat measurements require a real-device playtest.
 
+## Verification observed
+
+- `pnpm typecheck`: passed across all 14 packages/apps with typecheck scripts.
+- `pnpm test`: 15 deterministic/content/progression/economy/physics tests
+  passed; protocol and web unit-test scopes are explicitly empty and pass with
+  `--passWithNoTests`.
+- `pnpm build`: passed for every package and app; Vite emitted the Sites-ready
+  root `dist/` static entrypoint.
+- `pnpm --filter @mma/web e2e`: test definition is present for desktop and
+  mobile landscape, but execution is blocked in this environment because the
+  Playwright Chromium binary is not installed and the CDN download timed out.
+- A Sites checkpoint was built and deployment-status verified successfully for
+  the public/local-bot surface. The authoritative API/WebSocket services remain
+  separate by contract.
+
 ## Verification policy
 
 Repository evidence, deterministic simulation output and test results override
