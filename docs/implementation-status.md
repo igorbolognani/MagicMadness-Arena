@@ -53,6 +53,10 @@ only through ADRs that preserve the product contract.
 - Skill HUD pass: circular skill/utility controls expose distinct projectile,
   radial, field, wall, pull, arc and dash glyphs instead of four identical
   buttons.
+- Combat feedback pass: every cast now produces a short renderer-side burst
+  based on its versioned behavior, and the player has a visible 360-degree aim
+  reticle so radial, field, wall, pull and dash actions are not visually
+  mistaken for a failed projectile.
 - Separate API and WebSocket server deployable boundaries.
 - Strict runtime-validated client input protocol; client position/hit/damage/
   cooldown/RNG/death/respawn/score/economy fields are not accepted as authority.
@@ -89,7 +93,7 @@ hardware/FPS, memory and heat measurements require a real-device playtest.
 ## Verification observed
 
 - `pnpm typecheck`: passed across all 14 packages/apps with typecheck scripts.
-- `pnpm test`: 18 deterministic/content/progression/economy/physics/protocol tests
+- `pnpm test`: 19 deterministic/content/progression/economy/physics/protocol tests
   passed; protocol and web unit-test scopes are explicitly empty and pass with
   `--passWithNoTests`.
 - `pnpm build`: passed for every package and app; Vite emitted the Sites-ready
@@ -109,6 +113,11 @@ hardware/FPS, memory and heat measurements require a real-device playtest.
   sprite-atlas production. The next art dependency is replacing procedural unit
   shapes with original animated hero sheets, terrain tiles and elemental VFX
   while preserving the same GameState contract.
+- Final HD art is intentionally not claimed by the current code-only pass:
+  high-resolution hero atlases, animation frames, authored terrain tiles and
+  production VFX still need to be integrated as versioned assets. The current
+  renderer gives those assets a stable scene, draw-order and gameplay-state
+  boundary.
 - The browser's own address/status chrome may remain visible when the hosting
   surface denies fullscreen; the client now fills the available viewport and
   keeps its game canvas edge-to-edge, but cannot remove browser chrome without
