@@ -644,3 +644,148 @@ button:focus-visible, a:focus-visible { outline: 3px solid #f4d35e; outline-offs
   .stage-brief-copy { padding: 27px 22px; }
   .stage-brief-footer { flex-direction: column; }
 }
+
+/* The match is a game client, not another dashboard page. */
+.game-page {
+  position: relative;
+  height: 100dvh;
+  min-height: 520px;
+  background: #03050b;
+  isolation: isolate;
+}
+.game-page::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(2, 3, 8, .48) 100%);
+}
+.game-topbar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 12;
+  width: 100%;
+  height: 64px;
+  flex-basis: 64px;
+  background: linear-gradient(180deg, rgba(3, 5, 11, .94), rgba(3, 5, 11, .46), transparent);
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+.game-topbar > * { pointer-events: auto; }
+.game-body {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+}
+.arena-stage {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  display: block;
+  overflow: hidden;
+  background: #050711;
+}
+.arena-stage::before {
+  content: "";
+  position: absolute;
+  inset: 64px 0 0;
+  z-index: 1;
+  pointer-events: none;
+  border-top: 1px solid rgba(255,255,255,.04);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+}
+.arena-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: #050711;
+}
+.arena-title {
+  top: 78px;
+  left: 22px;
+  z-index: 5;
+  padding: 8px 11px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+  color: #d8e0f2;
+  background: rgba(5, 8, 18, .58);
+  backdrop-filter: blur(9px);
+  box-shadow: 0 12px 34px rgba(0,0,0,.2);
+}
+.arena-title small { display: none; }
+.arena-legend {
+  left: 50%;
+  bottom: 18px;
+  z-index: 5;
+  transform: translateX(-50%);
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  background: rgba(5, 8, 18, .55);
+  backdrop-filter: blur(9px);
+}
+.game-rail {
+  position: absolute;
+  top: 80px;
+  bottom: 90px;
+  z-index: 6;
+  width: 220px;
+  pointer-events: none;
+}
+.game-rail > * {
+  pointer-events: auto;
+  background: rgba(9, 14, 29, .72);
+  box-shadow: 0 14px 36px rgba(0,0,0,.2);
+  backdrop-filter: blur(13px);
+}
+.left-rail { left: 18px; }
+.right-rail { right: 18px; }
+.event-log { margin-top: auto; }
+.live-card, .diagnostic-card { border-color: rgba(255,255,255,.13); }
+.movement-pad {
+  z-index: 9;
+  background: rgba(9, 14, 29, .72);
+  box-shadow: 0 16px 40px rgba(0,0,0,.3), inset 0 0 0 1px rgba(255,255,255,.04);
+  backdrop-filter: blur(10px);
+}
+.combat-controls { z-index: 9; }
+.skill-button, .utility-button {
+  box-shadow: 0 10px 25px rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,255,255,.035);
+  backdrop-filter: blur(10px);
+}
+.result-overlay { inset: 0; z-index: 20; }
+
+@media (orientation: landscape) and (max-width: 1050px) {
+  .game-rail { width: 178px; }
+  .right-rail .event-log, .left-rail .diagnostic-card { display: none; }
+  .live-card { padding: 10px; }
+  .live-identity { margin-block: 7px 10px; }
+  .arena-title { left: 202px; }
+  .game-rail.right-rail + .movement-pad { left: 16px; }
+}
+
+@media (orientation: landscape) and (max-height: 650px) {
+  .game-topbar { height: 54px; }
+  .game-rail { top: 64px; bottom: 76px; }
+  .arena-title { top: 64px; }
+  .left-rail .compact-card, .left-rail .diagnostic-card { display: none; }
+  .live-card { font-size: 10px; }
+  .live-glyph { font-size: 19px; }
+  .movement-pad { width: 88px; height: 88px; left: 17px; bottom: 15px; }
+  .movement-pad::after { width: 42px; height: 42px; }
+  .combat-controls { right: 17px; bottom: 12px; }
+  .skill-button { width: 52px; height: 57px; }
+  .utility-button { min-width: 55px; height: 41px; }
+}
