@@ -221,7 +221,7 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
   if (!player || !hero) return null;
 
   return (
-    <main className="game-page">
+    <main className="game-page" data-testid="game-client">
       <div className="landscape-warning"><span>↔</span><strong>Rotate to landscape</strong><small>Gameplay is designed for a horizontal screen.</small></div>
       <header className="game-topbar">
         <button className="game-brand" onClick={onExit}><span className="brand-mark">MM</span><span>MagicMadness</span></button>

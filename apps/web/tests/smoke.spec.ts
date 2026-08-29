@@ -12,7 +12,9 @@ test("public homepage reaches the local bot match", async ({ page }) => {
   await expect(page.getByText("Choose your pressure.")).toBeVisible();
   await page.getByRole("button", { name: /start local match/i }).click();
   await expect(page).toHaveURL(/\/match\/local\//);
-  await expect(page.getByTestId("arena-canvas")).toBeVisible();
+  await expect(page.getByTestId("game-boot")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId("game-client")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByTestId("arena-canvas")).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("LOCAL BOT MATCH")).toBeVisible();
 });
 

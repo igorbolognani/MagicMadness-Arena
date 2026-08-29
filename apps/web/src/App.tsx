@@ -77,6 +77,16 @@ function useRouter(): { path: string; navigate: Navigate } {
   return { path, navigate };
 }
 
+function requestBrowserFullscreen(): void {
+  const request = document.documentElement.requestFullscreen?.();
+  if (request) void request.catch(() => undefined);
+}
+
+function exitBrowserFullscreen(): void {
+  const exit = document.exitFullscreen?.();
+  if (exit) void exit.catch(() => undefined);
+}
+
 function readStoredIdentity(): Identity | null {
   if (typeof window === "undefined") return null;
   const value = window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -226,19 +236,19 @@ function Home({ navigate }: { navigate: Navigate }) {
 
 function PublicPage({ kind, navigate }: { kind: "how" | "heroes" | "elements" | "modes" | "world" | "news"; navigate: Navigate }) {
   const titles = {
-    how: ["Combat grammar", "The arena is a language. Learn to speak with force."],
-    heroes: ["The starter roster", "Four identities. Sixteen skills. No interchangeable silhouettes."],
-    elements: ["Elemental grammar", "Every element changes the way space answers back."],
-    modes: ["Choose your pressure", "Start local, learn the rules, then step into the server boundary."],
-    world: ["The Shattered Meridian", "A broken world where every arena is a piece of a moving constellation."],
-    news: ["Build notes", "The current client is being built in public, one playable dependency at a time."],
+    how: ["Combat grammar", "The arena is a language.", "Learn to speak with force."],
+    heroes: ["Heroes", "The starter roster", "Four identities. Sixteen skills."],
+    elements: ["Elements", "Elemental grammar", "Every element changes the line."],
+    modes: ["Modes", "Choose your pressure", "Start local. Learn the rules."],
+    world: ["World", "The Shattered Meridian", "Every arena is a moving fragment."],
+    news: ["Build notes", "The client is online", "One playable dependency at a time."],
   } as const;
-  const [eyebrow, title] = titles[kind];
+  const [eyebrow, heading, tagline] = titles[kind];
   return (
     <PublicChrome path={`/${kind === "how" ? "how-it-works" : kind}`} navigate={navigate}>
       <section className="inner-public-hero">
         <p className="eyebrow">{eyebrow.toUpperCase()}</p>
-        <h1>{title.split(". ")[0]}<br /><span>{title.split(". ").slice(1).join(". ")}</span></h1>
+        <h1>{heading}<br /><span>{tagline}</span></h1>
         <p className="lead">Explore the systems that shape the client, then enter the launcher to feel them in motion.</p>
       </section>
       {kind === "how" && <CombatExplainer />}
@@ -334,7 +344,7 @@ function GameLauncher({ navigate, selectedHero, setSelectedHero }: { navigate: N
   if (!hero) return null;
   const start = () => {
     const matchId = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    void document.documentElement.requestFullscreen?.().catch(() => undefined);
+    requestBrowserFullscreen();
     navigate(`/match/local/${matchId}`);
   };
   return <><HubHeader eyebrow="GAME CLIENT · READY" title="Open the arena." action={["/game/play", "Choose a mode"]} navigate={navigate} /><section className="launcher-hero"><div className="launcher-hero-background"><img src="/assets/magicmadness-battle.webp" alt="" /></div><div className="launcher-hero-copy"><span className="launcher-kicker"><span className="pulse-dot" /> BUILD 0.1 · PLAYABLE</span><h2>Momentum is<br /><span>the real spell.</span></h2><p>Enter a full-viewport match client with a deterministic local simulation, rendered arena, hold-to-preview casting, environmental pressure and a result screen.</p><button className="primary-button" onClick={start}>Play Vs Bots <span>↗</span></button></div><div className="launcher-readout"><span className="mini-label">SELECTED HERO</span><div className="launcher-hero-id" style={{ "--hero-color": hero.color } as CSSProperties}><span>{elementGlyph[hero.element]}</span><div><strong>{hero.name}</strong><small>{elementLabels[hero.element]} · {hero.primaryClass}</small></div></div><button className="text-link" onClick={() => navigate("/game/heroes")}>Change hero →</button></div></section><div className="launcher-grid"><article className="launcher-card"><span className="mini-label">NEXT MATCH</span><h3>Windfall Ring</h3><p>One arena contract · Wind Surge · four fighters · one standard respawn.</p><div className="launcher-tags"><span>1600 × 900</span><span>LOCAL CORE</span><span>BOT READY</span></div></article><article className="launcher-card"><span className="mini-label">ACCOUNT SIGNAL</span><h3>Level 12 · {accountBand(12)}</h3><p>Your profile is ready for starter heroes, talents and runes. Competitive power caps remain data-driven.</p><button className="text-link" onClick={() => navigate("/game/profile")}>Open profile →</button></article></div><section className="launcher-select"><div className="section-heading small"><p className="eyebrow">QUICK SELECT</p><h2>Pick your fighter.</h2></div><div className="hero-select-grid">{heroDefinitions.map((entry) => <button key={entry.id} className={"select-hero " + (entry.id === selectedHero ? "selected" : "")} style={{ "--hero-color": entry.color } as CSSProperties} onClick={() => setSelectedHero(entry.id)}><span className="select-glyph">{elementGlyph[entry.element]}</span><span><strong>{entry.name}</strong><small>{elementLabels[entry.element]} · {entry.primaryClass}</small></span><span className="select-check">{entry.id === selectedHero ? "✓" : "○"}</span></button>)}</div></section></>;
@@ -343,7 +353,7 @@ function GameLauncher({ navigate, selectedHero, setSelectedHero }: { navigate: N
 function PlayHub({ navigate, selectedHero, setSelectedHero }: { navigate: Navigate; selectedHero: HeroId; setSelectedHero: (heroId: HeroId) => void }) {
   const start = () => {
     const matchId = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    void document.documentElement.requestFullscreen?.().catch(() => undefined);
+    requestBrowserFullscreen();
     navigate(`/match/local/${matchId}`);
   };
   return <><HubHeader eyebrow="PLAY · MATCHMAKING" title="Choose your pressure." navigate={navigate} /><div className="play-status-bar"><span><span className="pulse-dot" /> local simulation ready</span><small>Every match uses the shared deterministic Game Core.</small></div><div className="mode-grid hub-mode-grid"><article className="mode-card featured-mode"><div><span className="mode-icon">✦</span><span className="mini-label">RECOMMENDED FIRST</span><h2>Vs Bots</h2><p>One authored arena, Wind Surge and the complete starter combat loop. Start immediately in the fullscreen client.</p></div><button className="primary-button" onClick={start}>Start local match <span>↗</span></button></article><article className="mode-card"><span className="mode-tag">PvE · CONTRACT READY</span><h3>History</h3><p>Study the four elemental chapters. Boss staging is visible; only authored boss content is playable when its contract is complete.</p><button className="text-link" onClick={() => navigate("/game/history")}>Open history →</button></article><article className="mode-card"><span className="mode-tag">FFA · SERVER PATH</span><h3>Normal</h3><p>Standard round rules with one respawn. Online authority is reserved for the deployable server.</p><span className="muted-copy tiny">Server boundary ready · lobby not connected</span></article><article className="mode-card"><span className="mode-tag">RATING · LOCKED</span><h3>Ranked</h3><p>Competitive play waits for authoritative matchmaking and persistence.</p><span className="muted-copy tiny">Position, hit and score never trust the browser.</span></article><article className="mode-card"><span className="mode-tag">SOCIAL · IN BUILD</span><h3>Friends</h3><p>Invite-link rooms are modeled separately from local play.</p><button className="text-link" onClick={() => navigate("/game/friends")}>Open friends →</button></article></div><HeroPicker selectedHero={selectedHero} setSelectedHero={setSelectedHero} /><div className="contract-banner"><strong>Standard contract verified</strong><span>{MODE_RULES.standard.respawns} respawn · Match Score separated from Performance Score</span></div></>;
@@ -379,7 +389,7 @@ function HistoryStageScreen({ stageId, navigate, selectedHero }: { stageId: stri
   const boss = chapter?.bossIds[0] === "cinder-warden";
   const startStudyMatch = () => {
     const matchId = `history-${stageId}-${Date.now().toString(36)}`;
-    void document.documentElement.requestFullscreen?.().catch(() => undefined);
+    requestBrowserFullscreen();
     navigate(`/match/local/${matchId}`);
   };
   if (!chapter) return null;
@@ -405,7 +415,7 @@ function GameBootScreen({ matchId }: { matchId: string }) {
     return () => cancelAnimationFrame(frame);
   }, []);
   const stage = progress < 38 ? "Loading arena geometry" : progress < 68 ? "Binding input and balance" : progress < 100 ? "Starting local simulation" : "Client ready";
-  return <main className="game-boot-page"><div className="game-boot-mark"><span className="brand-mark">MM</span><div><strong>MAGICMADNESS</strong><small>ARENA CLIENT</small></div></div><div className="boot-visual"><img src="/assets/magicmadness-battle.webp" alt="" /><div className="boot-ring" /></div><div className="boot-copy"><p className="eyebrow">MATCH {matchId.toUpperCase()}</p><h1>Opening the<br /><span>arena client.</span></h1><div className="boot-progress"><div><span>{stage}</span><strong>{progress}%</strong></div><div className="progress-track"><span style={{ width: `${progress}%` }} /></div></div><div className="boot-status"><span><span className="pulse-dot" /> Pixi renderer</span><span><span className="pulse-dot" /> deterministic core</span><span><span className="status-hollow" /> server authority separate</span></div></div></main>;
+  return <main className="game-boot-page" data-testid="game-boot"><div className="game-boot-mark"><span className="brand-mark">MM</span><div><strong>MAGICMADNESS</strong><small>ARENA CLIENT</small></div></div><div className="boot-visual"><img src="/assets/magicmadness-battle.webp" alt="" /><div className="boot-ring" /></div><div className="boot-copy"><p className="eyebrow">MATCH {matchId.toUpperCase()}</p><h1>Opening the<br /><span>arena client.</span></h1><div className="boot-progress"><div><span>{stage}</span><strong>{progress}%</strong></div><div className="progress-track"><span style={{ width: `${progress}%` }} /></div></div><div className="boot-status"><span><span className="pulse-dot" /> Pixi renderer</span><span><span className="pulse-dot" /> deterministic core</span><span><span className="status-hollow" /> server authority separate</span></div></div></main>;
 }
 
 function MatchRoute({ matchId, heroId, onExit }: { matchId: string; heroId: HeroId; onExit: () => void }) {
@@ -452,7 +462,7 @@ function App() {
     return <HistoryStageScreen stageId={matchPath[2] ?? "fire-01"} navigate={navigate} selectedHero={selectedHero} />;
   }
   if (matchPath && identity) {
-    return <MatchRoute matchId={matchPath[2] ?? "local-match"} heroId={selectedHero} onExit={() => { void document.exitFullscreen?.().catch(() => undefined); navigate("/game/play"); }} />;
+    return <MatchRoute matchId={matchPath[2] ?? "local-match"} heroId={selectedHero} onExit={() => { exitBrowserFullscreen(); navigate("/game/play"); }} />;
   }
   if (matchPath && !identity) {
     return <LoginPage navigate={navigate} signIn={signIn} hasChatGptBridge={hasChatGptBridge} />;
