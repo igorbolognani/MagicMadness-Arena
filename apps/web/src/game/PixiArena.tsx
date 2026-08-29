@@ -344,6 +344,40 @@ function drawCanvasWorld(
     context.moveTo(player.position.x, player.position.y);
     context.lineTo(player.position.x + aim.x * (player.radius + 14), player.position.y + aim.y * (player.radius + 14));
     context.stroke();
+    const element = heroesById[player.heroId]?.element ?? "fire";
+    context.strokeStyle = canvasHex(elementColor(element));
+    context.fillStyle = canvasHex(elementColor(element));
+    context.lineWidth = 2.5;
+    context.beginPath();
+    if (element === "fire") {
+      context.moveTo(player.position.x, player.position.y - 11);
+      context.lineTo(player.position.x + 7, player.position.y + 3);
+      context.lineTo(player.position.x, player.position.y + 10);
+      context.lineTo(player.position.x - 7, player.position.y + 3);
+      context.closePath();
+      context.fill();
+    } else if (element === "water") {
+      context.arc(player.position.x, player.position.y + 2, 8, 0, Math.PI * 2);
+      context.stroke();
+      context.moveTo(player.position.x, player.position.y - 12);
+      context.lineTo(player.position.x + 5, player.position.y - 2);
+      context.lineTo(player.position.x - 5, player.position.y - 2);
+      context.closePath();
+      context.fill();
+    } else if (element === "earth") {
+      context.moveTo(player.position.x, player.position.y - 11);
+      context.lineTo(player.position.x + 10, player.position.y);
+      context.lineTo(player.position.x, player.position.y + 11);
+      context.lineTo(player.position.x - 10, player.position.y);
+      context.closePath();
+      context.fill();
+    } else {
+      context.arc(player.position.x - 2, player.position.y, 10, -1.1, 1.1);
+      context.stroke();
+      context.beginPath();
+      context.arc(player.position.x + 5, player.position.y, 7, -1.1, 1.1);
+      context.stroke();
+    }
     context.fillStyle = "#ffffff";
     context.font = "bold 18px Arial";
     context.fillText(elementGlyphForHero(player.heroId), player.position.x, player.position.y + 1);
@@ -617,6 +651,26 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
     heroGraphic.beginFill(0xffffff, 0.21);
     heroGraphic.drawCircle(player.position.x - player.radius * 0.28, player.position.y - player.radius * 0.31, player.radius * 0.36);
     heroGraphic.endFill();
+    const element = heroesById[player.heroId]?.element ?? "fire";
+    const emblemColor = elementColor(element);
+    heroGraphic.lineStyle(2.5, emblemColor, 0.95);
+    if (element === "fire") {
+      heroGraphic.beginFill(emblemColor, 0.95);
+      heroGraphic.drawPolygon([player.position.x, player.position.y - 11, player.position.x + 7, player.position.y + 3, player.position.x, player.position.y + 10, player.position.x - 7, player.position.y + 3]);
+      heroGraphic.endFill();
+    } else if (element === "water") {
+      heroGraphic.drawCircle(player.position.x, player.position.y + 2, 8);
+      heroGraphic.beginFill(emblemColor, 0.95);
+      heroGraphic.drawPolygon([player.position.x, player.position.y - 12, player.position.x + 5, player.position.y - 2, player.position.x - 5, player.position.y - 2]);
+      heroGraphic.endFill();
+    } else if (element === "earth") {
+      heroGraphic.beginFill(emblemColor, 0.95);
+      heroGraphic.drawPolygon([player.position.x, player.position.y - 11, player.position.x + 10, player.position.y, player.position.x, player.position.y + 11, player.position.x - 10, player.position.y]);
+      heroGraphic.endFill();
+    } else {
+      heroGraphic.arc(player.position.x - 2, player.position.y, 10, -1.1, 1.1);
+      heroGraphic.arc(player.position.x + 5, player.position.y, 7, -1.1, 1.1);
+    }
     const aim = player.input.aim;
     heroGraphic.lineStyle(4, 0xffffff, 0.8);
     heroGraphic.moveTo(player.position.x, player.position.y);
