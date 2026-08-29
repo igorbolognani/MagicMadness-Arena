@@ -257,17 +257,22 @@ function drawCanvasWorld(
   context.scale(worldScale, worldScale);
   const pulse = 0.5 + Math.sin(game.time * 4) * 0.5;
 
-  context.fillStyle = "#070a13";
+  context.fillStyle = "#121322";
   context.fillRect(0, 0, game.arena.width, game.arena.height);
-  context.fillStyle = "#0c1426";
+  const floorGradient = context.createLinearGradient(0, 0, game.arena.width, game.arena.height);
+  floorGradient.addColorStop(0, "#d3a66f");
+  floorGradient.addColorStop(0.5, "#c58e60");
+  floorGradient.addColorStop(1, "#95624f");
+  context.fillStyle = floorGradient;
   context.fillRect(game.arena.safeMin.x, game.arena.safeMin.y, game.arena.safeMax.x - game.arena.safeMin.x, game.arena.safeMax.y - game.arena.safeMin.y);
-  context.fillStyle = "rgba(117, 91, 66, .12)";
+  context.fillStyle = "rgba(255, 227, 166, .18)";
   for (let x = 40; x < game.arena.width; x += 160) {
     for (let y = 40; y < game.arena.height; y += 160) {
       context.fillRect(x, y, 76, 76);
-      context.strokeStyle = "rgba(210, 177, 126, .12)";
+      context.strokeStyle = "rgba(87, 53, 48, .28)";
       context.lineWidth = 2;
       context.beginPath();
+      context.rect(x, y, 76, 76);
       context.moveTo(x + 8, y + 10);
       context.lineTo(x + 68, y + 10);
       context.moveTo(x + 12, y + 66);
@@ -275,7 +280,7 @@ function drawCanvasWorld(
       context.stroke();
     }
   }
-  context.fillStyle = "rgba(53, 186, 246, .18)";
+  context.fillStyle = "rgba(92, 232, 255, .34)";
   for (const crystal of [{ x: 165, y: 125 }, { x: 1435, y: 675 }, { x: 1435, y: 125 }, { x: 165, y: 675 }]) {
     context.beginPath();
     context.moveTo(crystal.x, crystal.y - 22);
@@ -286,15 +291,16 @@ function drawCanvasWorld(
     context.fill();
   }
   const atmosphere = context.createRadialGradient(game.arena.center.x, game.arena.center.y, 30, game.arena.center.x, game.arena.center.y, 360);
-  atmosphere.addColorStop(0, "rgba(72, 52, 112, .26)");
+  atmosphere.addColorStop(0, "rgba(255, 181, 75, .23)");
+  atmosphere.addColorStop(0.45, "rgba(106, 62, 90, .12)");
   atmosphere.addColorStop(1, "rgba(23, 37, 65, 0)");
   context.fillStyle = atmosphere;
   context.fillRect(0, 0, game.arena.width, game.arena.height);
-  context.strokeStyle = "rgba(233, 77, 114, .62)";
+  context.strokeStyle = "rgba(255, 89, 102, .82)";
   context.lineWidth = 3;
   context.strokeRect(game.arena.safeMin.x, game.arena.safeMin.y, game.arena.safeMax.x - game.arena.safeMin.x, game.arena.safeMax.y - game.arena.safeMin.y);
 
-  context.strokeStyle = "rgba(37, 51, 78, .3)";
+  context.strokeStyle = "rgba(88, 59, 54, .22)";
   context.lineWidth = 1;
   for (let x = 80; x < game.arena.width; x += 80) {
     context.beginPath();
@@ -308,10 +314,17 @@ function drawCanvasWorld(
     context.lineTo(game.arena.width, y);
     context.stroke();
   }
-  context.strokeStyle = "rgba(244, 211, 94, .34)";
+  context.fillStyle = "rgba(232, 103, 56, .19)";
+  context.beginPath();
+  context.arc(game.arena.center.x, game.arena.center.y, 145 + pulse * 5, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = "rgba(255, 223, 129, .7)";
+  context.lineWidth = 4;
   context.beginPath();
   context.arc(game.arena.center.x, game.arena.center.y, 96, 0, Math.PI * 2);
   context.stroke();
+  context.strokeStyle = "rgba(190, 74, 52, .58)";
+  context.lineWidth = 5;
   context.beginPath();
   context.arc(game.arena.center.x, game.arena.center.y, 70, 0, Math.PI * 2);
   context.moveTo(game.arena.center.x - 115, game.arena.center.y);
@@ -352,9 +365,9 @@ function drawCanvasWorld(
     context.fillStyle = "rgba(2, 4, 10, .5)";
     canvasRoundedRect(context, wall.min.x + 9, wall.min.y + 11, wall.max.x - wall.min.x, wall.max.y - wall.min.y, 10);
     context.fill();
-    context.fillStyle = "#2b3c5f";
+    context.fillStyle = "#57435b";
     context.fillRect(wall.min.x, wall.min.y, wall.max.x - wall.min.x, wall.max.y - wall.min.y);
-    context.strokeStyle = "rgba(167, 184, 223, .7)";
+    context.strokeStyle = "rgba(255, 218, 162, .72)";
     context.lineWidth = 2;
     context.strokeRect(wall.min.x, wall.min.y, wall.max.x - wall.min.x, wall.max.y - wall.min.y);
   }
@@ -365,7 +378,7 @@ function drawCanvasWorld(
     context.fillStyle = canvasHex(colorForObject(object.color, 0x53688d));
     canvasRoundedRect(context, object.min.x, object.min.y, object.max.x - object.min.x, object.max.y - object.min.y, 12);
     context.fill();
-    context.strokeStyle = "rgba(244, 226, 192, .45)";
+    context.strokeStyle = "rgba(255, 226, 174, .62)";
     context.lineWidth = 2;
     context.stroke();
     if (object.kind === "crate") {
@@ -644,6 +657,12 @@ function drawCanvasWorld(
     context.fillStyle = player.hp > player.maxHp * 0.35 ? "#4de1a7" : "#ff5277";
     canvasRoundedRect(context, player.position.x - 28, player.position.y + player.radius + 8, 56 * Math.max(0, Math.min(1, player.hp / player.maxHp)), 6, 3);
     context.fill();
+    context.font = "bold 11px Arial";
+    context.strokeStyle = "#080b16";
+    context.lineWidth = 3;
+    context.strokeText(String(Math.ceil(player.hp)), player.position.x, player.position.y + player.radius + 11);
+    context.fillStyle = "#ffffff";
+    context.fillText(String(Math.ceil(player.hp)), player.position.x, player.position.y + player.radius + 11);
   }
 
   if (preview) {
@@ -670,18 +689,19 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
   root.removeChildren().forEach((child) => child.destroy({ children: true }));
   const pulse = 0.5 + Math.sin(game.time * 4) * 0.5;
   const background = new Graphics();
-  background.beginFill(0x070a13);
+  background.beginFill(0x121322);
   background.drawRect(0, 0, game.arena.width, game.arena.height);
   background.endFill();
-  background.beginFill(0x0c1426, 1);
+  background.beginFill(0xd0a16c, 1);
   background.drawRect(game.arena.safeMin.x, game.arena.safeMin.y, game.arena.safeMax.x - game.arena.safeMin.x, game.arena.safeMax.y - game.arena.safeMin.y);
   background.endFill();
   const floor = new Graphics();
-  floor.beginFill(0x8a684e, 0.1);
+  floor.beginFill(0xffe0a4, 0.19);
   for (let x = 40; x < game.arena.width; x += 160) {
     for (let y = 40; y < game.arena.height; y += 160) {
       floor.drawRect(x, y, 76, 76);
-      floor.lineStyle(2, 0xd2b17e, 0.11);
+      floor.lineStyle(2, 0x6b4a48, 0.28);
+      floor.drawRect(x, y, 76, 76);
       floor.moveTo(x + 8, y + 10);
       floor.lineTo(x + 68, y + 10);
       floor.moveTo(x + 12, y + 66);
@@ -689,25 +709,25 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
     }
   }
   for (const crystal of [{ x: 165, y: 125 }, { x: 1435, y: 675 }, { x: 1435, y: 125 }, { x: 165, y: 675 }]) {
-    floor.beginFill(0x35baf6, 0.2);
+    floor.beginFill(0x5ce8ff, 0.34);
     floor.drawPolygon([crystal.x, crystal.y - 22, crystal.x + 14, crystal.y + 7, crystal.x, crystal.y + 24, crystal.x - 14, crystal.y + 7]);
     floor.endFill();
   }
   root.addChild(floor);
-  background.beginFill(0x172541, 0.18);
+  background.beginFill(0xffa34d, 0.13);
   background.drawCircle(game.arena.center.x, game.arena.center.y, 320 + pulse * 18);
   background.endFill();
-  background.beginFill(0x2a1d43, 0.1);
-  background.drawCircle(game.arena.center.x, game.arena.center.y, 170 + pulse * 9);
+  background.beginFill(0xe46742, 0.18);
+  background.drawCircle(game.arena.center.x, game.arena.center.y, 145 + pulse * 6);
   background.endFill();
-  background.lineStyle(3, 0xe94d72, 0.58);
+  background.lineStyle(3, 0xff5966, 0.82);
   background.drawRect(game.arena.safeMin.x, game.arena.safeMin.y, game.arena.safeMax.x - game.arena.safeMin.x, game.arena.safeMax.y - game.arena.safeMin.y);
-  background.lineStyle(1, 0xf4d35e, 0.23);
+  background.lineStyle(1, 0xffe39a, 0.5);
   background.drawRect(game.arena.safeMin.x + 12, game.arena.safeMin.y + 12, game.arena.safeMax.x - game.arena.safeMin.x - 24, game.arena.safeMax.y - game.arena.safeMin.y - 24);
   root.addChild(background);
 
   const grid = new Graphics();
-  grid.lineStyle(1, 0x25334e, 0.26);
+  grid.lineStyle(1, 0x583c42, 0.25);
   for (let x = 80; x < game.arena.width; x += 80) {
     grid.moveTo(x, 0);
     grid.lineTo(x, game.arena.height);
@@ -718,7 +738,7 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
   }
   for (let x = 80; x < game.arena.width; x += 160) {
     for (let y = 80; y < game.arena.height; y += 160) {
-      grid.beginFill(0x6d84b6, 0.035);
+      grid.beginFill(0xffe1aa, 0.06);
       grid.drawRect(x, y, 80, 80);
       grid.endFill();
     }
@@ -974,6 +994,10 @@ function drawWorld(root: Container, game: GameState, preview: SkillPreview | nul
     hp.drawRoundedRect(player.position.x - 28, player.position.y + player.radius + 8, 56 * Math.max(0, Math.min(1, player.hp / player.maxHp)), 6, 3);
     hp.endFill();
     root.addChild(hp);
+    const hpValue = new Text(String(Math.ceil(player.hp)), new TextStyle({ fontFamily: "Arial", fontSize: 11, fill: 0xffffff, stroke: 0x080b16, strokeThickness: 3, fontWeight: "bold", align: "center" }));
+    hpValue.anchor.set(0.5);
+    hpValue.position.set(player.position.x, player.position.y + player.radius + 11);
+    root.addChild(hpValue);
   }
 
   drawCastBursts(root, game);
