@@ -82,13 +82,14 @@ hardware/FPS, memory and heat measurements require a real-device playtest.
   `--passWithNoTests`.
 - `pnpm build`: passed for every package and app; Vite emitted the Sites-ready
   root `dist/` static entrypoint, including the generated battle art asset.
-- `pnpm --filter @mma/web e2e`: test definition is present for desktop and
-  mobile landscape, but execution is blocked in this environment because the
-  Playwright Chromium binary is not installed and the CDN download timed out.
+- `pnpm --filter @mma/web e2e`: the local definition covers desktop and mobile
+  landscape; this scratch environment has no installed Chromium binary.
+- GitHub Actions `Web E2E`: passed on commit `4a639ea00c74ed0878316b74bff9b669669ba04b`
+  with all 4 desktop/landscape-mobile route and canvas scenarios green.
 - A Sites checkpoint was built and deployment-status verified successfully for
   the public/local-bot surface. The authoritative API/WebSocket services remain
   separate by contract.
-- The current client build emits an 818 kB minified JavaScript chunk because
+- The current client build emits an 832 kB minified JavaScript chunk because
   PixiJS and the complete content/game-core slice are shipped together. This is
   an observed optimization gap; the next safe technical step is route/client
   code-splitting without changing simulation behavior.
