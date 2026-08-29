@@ -99,6 +99,14 @@ projectile in the world, the renderer emits a short behavior-specific cast
 burst from the `CAST_RELEASE` event. This is presentation-only feedback; hit,
 damage, cooldown and outcome remain owned by `game-core`.
 
+### T014 — Landscape battle HUD composition
+
+On short landscape screens, the match client hides secondary score and event
+rails so the arena owns the full viewport. Movement, aim, skills, dash and
+potions remain circular DOM overlays above the renderer, while fullscreen and
+pause remain in the compact topbar. Pause only gates the local simulation
+clock; it does not add an authority rule or mutate `GameState`.
+
 ## Change rule
 
 Any technical change that changes authority, simulation ordering, content
