@@ -61,12 +61,6 @@ browser or hosted surface, the same `GameState` is rendered through a native
 Canvas 2D fallback on the existing game canvas. This preserves a real playable
 client and input surface without changing simulation, scoring or authority.
 
-## Change rule
-
-Any technical change that changes authority, simulation ordering, content
-versioning, persistence, or deployment boundaries requires a new ADR and
-updated evidence in implementation-status.md.
-
 ### T009 — Fullscreen-first match presentation
 
 The match route owns the whole viewport. The arena renderer is the visual
@@ -83,3 +77,23 @@ played and tested without coupling art files to simulation. These shapes are an
 implementation baseline, not a product art decision; original animated sprite
 atlases, terrain tiles and authored VFX can replace them without changing
 GameState, content, balance or authority contracts.
+
+### T011 — Dual-stick input boundary for mobile client
+
+The mobile match client exposes independent circular move and aim controls.
+Both controls emit normalized vectors into the same `InputCommand` stream used
+by keyboard/mouse play. A skill remains a hold-to-preview action and casts only
+when the release command reaches `game-core`; pointer cancellation releases the
+skill as well, preventing a stuck input state.
+
+### T012 — Circular combat control language
+
+Touch-facing skills, dash and potion actions use circular controls in the match
+HUD. Skill glyphs are derived from the versioned balance behavior, while the
+renderer remains responsible for the higher-fidelity world presentation.
+
+## Change rule
+
+Any technical change that changes authority, simulation ordering, content
+versioning, persistence, or deployment boundaries requires a new ADR and
+updated evidence in implementation-status.md.
