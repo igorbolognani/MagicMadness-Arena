@@ -151,7 +151,11 @@ importers:
         specifier: ^3.25.67
         version: 3.25.76
 
-  packages/protocol: {}
+  packages/protocol:
+    dependencies:
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
 
   packages/telemetry: {}
 

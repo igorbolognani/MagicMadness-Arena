@@ -71,4 +71,12 @@ describe("MagicMadness deterministic game core", () => {
     expect(state.events.some((event) => event.type === "DAMAGE")).toBe(true);
     expect(state.events.some((event) => event.type === "IMPULSE")).toBe(true);
   });
+
+  it("runs the telegraphed environmental event cycle", () => {
+    const state = createMatch({ seed: 6, botCount: 1 });
+    run(state, 900);
+    expect(state.events.some((event) => event.detail === "Wind Surge warning")).toBe(true);
+    expect(state.events.some((event) => event.detail === "Wind Surge active")).toBe(true);
+    expect(state.environmental.cycleIndex).toBeGreaterThan(0);
+  });
 });

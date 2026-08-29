@@ -990,19 +990,18 @@ function updateWalls(state: GameState, dt: number): void {
 
 function updateEnvironmental(state: GameState, dt: number): void {
   state.environmental.remaining -= dt;
-  if (state.environmental.remaining > 0) {
-    if (state.environmental.phase === "calm" && state.environmental.remaining <= ARENA_BASELINE.windWarningSeconds) {
-      state.environmental.phase = "warning";
-      addEvent(state, "INTERACTION", { position: state.arena.center, detail: "Wind Surge warning" }, ["EVENT", "TELEGRAPH"]);
-    } else if (state.environmental.phase === "warning" && state.environmental.remaining <= 0) {
-      state.environmental.phase = "active";
-      state.environmental.remaining = ARENA_BASELINE.windActiveSeconds;
-      state.environmental.cycleIndex += 1;
-      const angle = nextRandom(state) * Math.PI * 2;
-      state.environmental.direction = { x: Math.cos(angle), y: Math.sin(angle) };
-      addEvent(state, "INTERACTION", { position: state.arena.center, vector: state.environmental.direction, detail: "Wind Surge active" }, ["EVENT", "WIND"]);
-    }
-  } else if (state.environmental.phase === "active") {
+  if (state.environmental.phase === "calm" && state.environmental.remaining <= ARENA_BASELINE.windWarningSeconds) {
+    state.environmental.phase = "warning";
+    addEvent(state, "INTERACTION", { position: state.arena.center, detail: "Wind Surge warning" }, ["EVENT", "TELEGRAPH"]);
+  }
+  if (state.environmental.phase === "warning" && state.environmental.remaining <= 0) {
+    state.environmental.phase = "active";
+    state.environmental.remaining = ARENA_BASELINE.windActiveSeconds;
+    state.environmental.cycleIndex += 1;
+    const angle = nextRandom(state) * Math.PI * 2;
+    state.environmental.direction = { x: Math.cos(angle), y: Math.sin(angle) };
+    addEvent(state, "INTERACTION", { position: state.arena.center, vector: state.environmental.direction, detail: "Wind Surge active" }, ["EVENT", "WIND"]);
+  } else if (state.environmental.phase === "active" && state.environmental.remaining <= 0) {
     state.environmental.phase = "calm";
     state.environmental.remaining = 8 + nextRandom(state) * 5;
     addEvent(state, "INTERACTION", { position: state.arena.center, detail: "Wind Surge ended" }, ["EVENT"]);

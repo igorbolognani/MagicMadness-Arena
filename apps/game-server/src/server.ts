@@ -7,7 +7,7 @@ import {
   type GameState,
   type InputCommand,
 } from "@mma/game-core";
-import { PROTOCOL_VERSION, assertProtocolVersion, type ClientInputMessage } from "@mma/protocol";
+import { PROTOCOL_VERSION, assertProtocolVersion, parseClientInputMessage } from "@mma/protocol";
 
 type ConnectedClient = { socket: WebSocket; playerId: string; lastSequence: number };
 
@@ -50,7 +50,7 @@ websocketServer.on("connection", (socket) => {
   socket.send(JSON.stringify({ type: "snapshot", protocolVersion: PROTOCOL_VERSION, tick: state.tick, payload: state }));
   socket.on("message", (raw) => {
     try {
-      const message = JSON.parse(raw.toString()) as ClientInputMessage;
+      const message = parseClientInputMessage(JSON.parse(raw.toString()));
       assertProtocolVersion(message.protocolVersion);
       if (message.sequence <= client.lastSequence) return;
       client.lastSequence = message.sequence;

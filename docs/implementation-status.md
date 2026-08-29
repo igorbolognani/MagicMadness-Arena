@@ -30,6 +30,8 @@ only through ADRs that preserve the product contract.
 - Desktop keyboard/mouse and mobile touch controls, pinch/scroll zoom and
   diagnostic overlay.
 - Separate API and WebSocket server deployable boundaries.
+- Strict runtime-validated client input protocol; client position/hit/damage/
+  cooldown/RNG/death/respawn/score/economy fields are not accepted as authority.
 - CI workflow definitions, deterministic tests and content validation tests.
 
 ## Deliberate remaining gaps
@@ -55,7 +57,7 @@ hardware/FPS, memory and heat measurements require a real-device playtest.
 ## Verification observed
 
 - `pnpm typecheck`: passed across all 14 packages/apps with typecheck scripts.
-- `pnpm test`: 15 deterministic/content/progression/economy/physics tests
+- `pnpm test`: 18 deterministic/content/progression/economy/physics/protocol tests
   passed; protocol and web unit-test scopes are explicitly empty and pass with
   `--passWithNoTests`.
 - `pnpm build`: passed for every package and app; Vite emitted the Sites-ready
