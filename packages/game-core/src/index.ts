@@ -4,6 +4,7 @@ import {
   HERO_BASE_ATTRIBUTES,
   MODE_RULES,
   PHYSICS_BASELINE,
+  SCORE_BASELINE,
   getSkillTuning,
   type SkillBehavior,
   type SkillTuning,
@@ -292,18 +293,8 @@ function createArena(): ArenaState {
       y: ARENA_BASELINE.height - ARENA_BASELINE.margin,
     },
     center: { x: ARENA_BASELINE.width / 2, y: ARENA_BASELINE.height / 2 },
-    walls: [
-      { min: { x: 638, y: 354 }, max: { x: 962, y: 402 } },
-      { min: { x: 638, y: 498 }, max: { x: 962, y: 546 } },
-      { min: { x: 314, y: 406 }, max: { x: 390, y: 494 } },
-      { min: { x: 1210, y: 406 }, max: { x: 1286, y: 494 } },
-    ],
-    objects: [
-      { id: "crate-west", kind: "crate", min: { x: 486, y: 230 }, max: { x: 550, y: 294 }, destructible: true, hp: 70, color: "#b9784d" },
-      { id: "crate-east", kind: "crate", min: { x: 1050, y: 606 }, max: { x: 1114, y: 670 }, destructible: true, hp: 70, color: "#b9784d" },
-      { id: "house-north", kind: "house", min: { x: 1040, y: 238 }, max: { x: 1175, y: 318 }, destructible: false, hp: 999, color: "#34466d" },
-      { id: "house-south", kind: "house", min: { x: 425, y: 582 }, max: { x: 560, y: 662 }, destructible: false, hp: 999, color: "#34466d" },
-    ],
+    walls: ARENA_BASELINE.walls.map((wall) => ({ min: { ...wall.min }, max: { ...wall.max } })),
+    objects: ARENA_BASELINE.objects.map((object) => ({ ...object, min: { ...object.min }, max: { ...object.max } })),
   };
 }
 
@@ -1019,7 +1010,13 @@ function updateEnvironmental(state: GameState, dt: number): void {
 }
 
 function calculatePerformanceScore(player: PlayerState): number {
-  return Math.round(player.performance.damage + player.performance.assists * 30 + player.performance.kos * 80 + player.performance.utility * 4 + player.performance.survivalSeconds);
+  return Math.round(
+    player.performance.damage
+      + player.performance.assists * SCORE_BASELINE.assistPerformanceScore
+      + player.performance.kos * SCORE_BASELINE.koPerformanceScore
+      + player.performance.utility * SCORE_BASELINE.utilityPerformanceScore
+      + player.performance.survivalSeconds,
+  );
 }
 
 function resolveDeath(state: GameState, target: PlayerState, cause: DeathCause): void {
@@ -1037,7 +1034,7 @@ function resolveDeath(state: GameState, target: PlayerState, cause: DeathCause):
     [cause.toUpperCase()],
   );
   if (killer && killer.id !== target.id) {
-    killer.matchScore += 100;
+    killer.matchScore += SCORE_BASELINE.koMatchScore;
     killer.performance.kos += 1;
     addEvent(state, "KO", { actorId: killer.id, targetId: target.id, detail: cause }, ["KO"], [deathEvent.id]);
     const assistIds = new Set(

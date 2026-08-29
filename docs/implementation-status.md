@@ -14,6 +14,7 @@ only through ADRs that preserve the product contract.
 - pnpm TypeScript monorepo shape with web, game-server, API and shared packages.
 - Schema-validated starter content for Fire, Water, Earth and Air.
 - Versioned balance data for 16 starter skills and core physics constants.
+- Versioned and schema-validated arena layout, mode rules and score constants.
 - Shared fixed-step game core with deterministic seeded simulation.
 - Physics adapter boundary with deterministic circle/AABB operations.
 - D0 combat lifecycle: movement, aim, preview, release, cooldown, resources,

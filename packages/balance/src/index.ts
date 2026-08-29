@@ -151,11 +151,30 @@ export const ARENA_BASELINE = {
   roundDurationSeconds: 120,
   windWarningSeconds: 2.5,
   windActiveSeconds: 6,
+  walls: [
+    { min: { x: 638, y: 354 }, max: { x: 962, y: 402 } },
+    { min: { x: 638, y: 498 }, max: { x: 962, y: 546 } },
+    { min: { x: 314, y: 406 }, max: { x: 390, y: 494 } },
+    { min: { x: 1210, y: 406 }, max: { x: 1286, y: 494 } },
+  ],
+  objects: [
+    { id: "crate-west", kind: "crate", min: { x: 486, y: 230 }, max: { x: 550, y: 294 }, destructible: true, hp: 70, color: "#b9784d" },
+    { id: "crate-east", kind: "crate", min: { x: 1050, y: 606 }, max: { x: 1114, y: 670 }, destructible: true, hp: 70, color: "#b9784d" },
+    { id: "house-north", kind: "house", min: { x: 1040, y: 238 }, max: { x: 1175, y: 318 }, destructible: false, hp: 999, color: "#34466d" },
+    { id: "house-south", kind: "house", min: { x: 425, y: 582 }, max: { x: 560, y: 662 }, destructible: false, hp: 999, color: "#34466d" },
+  ],
 } as const;
 
 export const MODE_RULES = {
   standard: { respawns: 1, finalRound: false },
   final: { respawns: 3, finalRound: true },
+} as const;
+
+export const SCORE_BASELINE = {
+  koMatchScore: 100,
+  assistPerformanceScore: 30,
+  koPerformanceScore: 80,
+  utilityPerformanceScore: 4,
 } as const;
 
 export const META_BALANCE_VERSION = "meta-baseline-0.1.0";
@@ -210,4 +229,33 @@ export function validateBalance(): void {
     healthPotionAmount: z.number().positive(),
     manaPotionAmount: z.number().positive(),
   }).parse(PHYSICS_BASELINE);
+  z.object({
+    width: z.number().positive(),
+    height: z.number().positive(),
+    margin: z.number().nonnegative(),
+    hazardKoDistance: z.number().positive(),
+    roundDurationSeconds: z.number().positive(),
+    windWarningSeconds: z.number().positive(),
+    windActiveSeconds: z.number().positive(),
+    walls: z.array(z.object({ min: z.object({ x: z.number(), y: z.number() }), max: z.object({ x: z.number(), y: z.number() }) })),
+    objects: z.array(z.object({
+      id: z.string().min(1),
+      kind: z.enum(["crate", "house"]),
+      min: z.object({ x: z.number(), y: z.number() }),
+      max: z.object({ x: z.number(), y: z.number() }),
+      destructible: z.boolean(),
+      hp: z.number().positive(),
+      color: z.string().min(1),
+    })),
+  }).parse(ARENA_BASELINE);
+  z.object({
+    standard: z.object({ respawns: z.number().int().nonnegative(), finalRound: z.boolean() }),
+    final: z.object({ respawns: z.number().int().nonnegative(), finalRound: z.boolean() }),
+  }).parse(MODE_RULES);
+  z.object({
+    koMatchScore: z.number().positive(),
+    assistPerformanceScore: z.number().positive(),
+    koPerformanceScore: z.number().positive(),
+    utilityPerformanceScore: z.number().positive(),
+  }).parse(SCORE_BASELINE);
 }

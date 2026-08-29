@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BALANCE_VERSION, ECONOMY_BASELINE, getSkillTuning, RUNE_POWER_BUDGET, skillBalance, validateBalance } from "./index";
+import { BALANCE_VERSION, ECONOMY_BASELINE, getSkillTuning, RUNE_POWER_BUDGET, SCORE_BASELINE, skillBalance, validateBalance } from "./index";
 
 describe("versioned balance", () => {
   it("contains tuning for every starter skill", () => {
@@ -9,5 +9,6 @@ describe("versioned balance", () => {
     expect(getSkillTuning("fire-ember-bolt").damage).toBeGreaterThan(0);
     expect(ECONOMY_BASELINE.duplicateCombatPower).toBe(0);
     expect(RUNE_POWER_BUDGET.maxEquippedPerFamily).toBe(1);
+    expect(SCORE_BASELINE.koMatchScore).toBeGreaterThan(0);
   });
 });
