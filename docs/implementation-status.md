@@ -57,6 +57,12 @@ only through ADRs that preserve the product contract.
   based on its versioned behavior, and the player has a visible 360-degree aim
   reticle so radial, field, wall, pull and dash actions are not visually
   mistaken for a failed projectile.
+- Mobile battle HUD pass: short landscape screens give the arena the full
+  viewport, keep movement/aim/skill actions as large circular overlays, hide
+  secondary rails, and retain a compact topbar with fullscreen and pause.
+- Pause control now stops local simulation stepping while keeping the client
+  rendered and clearly communicates the paused state; HP values are also
+  rendered above each live unit for in-world combat readability.
 - Separate API and WebSocket server deployable boundaries.
 - Strict runtime-validated client input protocol; client position/hit/damage/
   cooldown/RNG/death/respawn/score/economy fields are not accepted as authority.
@@ -105,7 +111,7 @@ hardware/FPS, memory and heat measurements require a real-device playtest.
 - A Sites checkpoint was built and deployment-status verified successfully for
   the public/local-bot surface. The authoritative API/WebSocket services remain
   separate by contract.
-- The current client build emits an 832 kB minified JavaScript chunk because
+- The current client build emits an 847 kB minified JavaScript chunk because
   PixiJS and the complete content/game-core slice are shipped together. This is
   an observed optimization gap; the next safe technical step is route/client
   code-splitting without changing simulation behavior.
