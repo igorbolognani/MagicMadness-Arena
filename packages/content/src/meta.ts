@@ -29,6 +29,7 @@ export const BossDefinitionSchema = z.object({
   activeSkills: z.array(z.string()).min(1).max(5),
   mechanicHooks: z.array(z.string()).min(1),
   rewardTableId: z.string().min(1),
+  phases: z.array(z.object({ id: z.string().min(1), threshold: z.number().min(0).max(1), mechanic: z.string().min(1), telegraph: z.string().min(1) })).min(1).max(5),
 });
 export type BossDefinition = z.infer<typeof BossDefinitionSchema>;
 
@@ -42,7 +43,28 @@ export const bossDefinitions: BossDefinition[] = [
     activeSkills: ["telegraphed-meteor", "ember-ring", "wall-breaker", "summon-cinderlings", "edge-surge"],
     mechanicHooks: ["meteor-safe-zones", "destructible-cover", "edge-recovery", "summon-pressure"],
     rewardTableId: "history-fire-01",
+    phases: [
+      { id: "kindled", threshold: 1, mechanic: "ember-ring", telegraph: "ground-runes" },
+      { id: "heated", threshold: 0.66, mechanic: "telegraphed-meteor", telegraph: "falling-markers" },
+      { id: "overrun", threshold: 0.33, mechanic: "summon-cinderlings", telegraph: "ash-burst" },
+    ],
   },
+];
+
+export const HistoryStageSchema = z.object({
+  id: z.string().min(1),
+  chapterId: z.string().min(1),
+  order: z.number().int().positive(),
+  purpose: z.enum(["lesson", "pressure", "boss"]),
+  mechanics: z.array(z.string()).min(1),
+  bossId: z.string().optional(),
+});
+export type HistoryStage = z.infer<typeof HistoryStageSchema>;
+
+export const historyStages: HistoryStage[] = [
+  { id: "fire-01", chapterId: "fire-chapter", order: 1, purpose: "lesson", mechanics: ["projectile", "knockback"] },
+  { id: "fire-02", chapterId: "fire-chapter", order: 2, purpose: "pressure", mechanics: ["hazard-positioning", "destructible-cover"] },
+  { id: "fire-03", chapterId: "fire-chapter", order: 3, purpose: "boss", mechanics: ["meteor-safe-zones", "ember-ring", "summon-pressure"], bossId: "cinder-warden" },
 ];
 
 export const HistoryChapterSchema = z.object({
