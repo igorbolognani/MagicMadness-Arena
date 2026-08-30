@@ -4,12 +4,14 @@ import {
   CurrencyDefinitionSchema,
   ExpandedElementSchema,
   HistoryChapterSchema,
+  HistoryStageSchema,
   RuneDefinitionSchema,
   TalentNodeSchema,
   bossDefinitions,
   currencyDefinitions,
   expandedElementDefinitions,
   historyChapters,
+  historyStages,
   runeDefinitions,
   talentNodes,
 } from "./meta";
@@ -193,6 +195,7 @@ export function validateCanonicalContent(): void {
   SkillDefinitionSchema.array().parse(skillDefinitions);
   ExpandedElementSchema.array().parse(expandedElementDefinitions);
   HistoryChapterSchema.array().parse(historyChapters);
+  HistoryStageSchema.array().parse(historyStages);
   BossDefinitionSchema.array().parse(bossDefinitions);
   TalentNodeSchema.array().parse(talentNodes);
   RuneDefinitionSchema.array().parse(runeDefinitions);
@@ -214,18 +217,21 @@ export {
   CurrencyDefinitionSchema,
   ExpandedElementSchema,
   HistoryChapterSchema,
+  HistoryStageSchema,
   RuneDefinitionSchema,
   TalentNodeSchema,
   bossDefinitions,
   currencyDefinitions,
   expandedElementDefinitions,
   historyChapters,
+  historyStages,
   runeDefinitions,
   talentNodes,
   type BossDefinition,
   type CurrencyDefinition,
   type ExpandedElementDefinition,
   type HistoryChapter,
+  type HistoryStage,
   type RuneDefinition,
   type TalentNode,
 } from "./meta";
