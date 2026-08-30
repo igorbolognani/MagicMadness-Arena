@@ -107,6 +107,15 @@ potions remain circular DOM overlays above the renderer, while fullscreen and
 pause remain in the compact topbar. Pause only gates the local simulation
 clock; it does not add an authority rule or mutate `GameState`.
 
+### T015 — History stage and boss content contract
+
+History content is represented as versioned stage records with an explicit
+purpose (`lesson`, `pressure`, or `boss`) and mechanic list. Boss records now
+carry bounded phase thresholds, mechanic identifiers and telegraph identifiers;
+the first Fire chapter binds `fire-03` to the three-phase Cinder Warden. Runtime
+encounter execution remains the next implementation step and must consume
+these records outside React components.
+
 ## Change rule
 
 Any technical change that changes authority, simulation ordering, content
