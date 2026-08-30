@@ -67,6 +67,9 @@ only through ADRs that preserve the product contract.
 - Strict runtime-validated client input protocol; client position/hit/damage/
   cooldown/RNG/death/respawn/score/economy fields are not accepted as authority.
 - CI workflow definitions, deterministic tests and content validation tests.
+- History content contract pass: the Fire chapter now has three explicit
+  versioned stages, with lesson/pressure/boss purpose and a three-phase
+  Cinder Warden contract including telegraph names and mechanic hooks.
 
 ## Deliberate remaining gaps
 
@@ -76,7 +79,8 @@ dependencies are:
 
 1. richer D4 multi-round preparation and objective rules;
 2. D6/D7 authored variation packages and more environmental events;
-3. History stages, mobs and authored bosses;
+3. History runtime: spawnable mobs, boss AI/phase execution and authored boss
+   rewards still need to consume the new stage/boss data contract;
 4. friend lobbies, reconnect, production server persistence and a real
    Sign in with ChatGPT handshake on the target hosting surface;
 5. D8 expanded hero content;
