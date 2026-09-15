@@ -232,7 +232,7 @@ function PublicChrome({ path, navigate, children }: { path: string; navigate: Na
               {label}
             </RouteLink>
           ))}
-          <a href="/game" target="_blank" rel="noopener" className="ghost-button nav-cta">Open game client ↗</a>
+          <RouteLink to="/game" navigate={navigate} className="ghost-button nav-cta">Open game client →</RouteLink>
         </div>
         <button className="mobile-public-menu" onClick={() => setMobileNavOpen((value) => !value)} aria-expanded={mobileNavOpen} aria-label="Open public menu">{mobileNavOpen ? "Close" : "Menu"}</button>
       </nav>
@@ -252,7 +252,7 @@ function Home({ navigate }: { navigate: Navigate }) {
           <h1>Make the arena<br /><span>answer to you.</span></h1>
           <p className="lead">MagicMadness Arena is a top-down hero brawler where aim, collision, momentum and map pressure make every cast visible — and every knockout earned.</p>
           <div className="hero-actions">
-            <a className="primary-button" href="/game" target="_blank" rel="noopener">Play MagicMadness <span>↗</span></a>
+            <RouteLink to="/game" navigate={navigate} className="primary-button">Play MagicMadness <span>→</span></RouteLink>
             <RouteLink to="/how-it-works" navigate={navigate} className="text-link">Learn the combat loop ↓</RouteLink>
           </div>
           <div className="trust-line"><span className="pulse-dot" /> Client build online · local bot playtest ready</div>
