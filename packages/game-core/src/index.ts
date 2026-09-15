@@ -38,7 +38,7 @@ import {
   type Vec2,
 } from "@mma/physics";
 
-export const GAME_CORE_VERSION = "game-core-0.3.0";
+export const GAME_CORE_VERSION = "game-core-0.4.0";
 export const FIXED_STEP_SECONDS = PHYSICS_BASELINE.fixedStepSeconds;
 
 export type MatchMode = "standard" | "final";
@@ -255,6 +255,8 @@ export type MatchResult = {
   }>;
 };
 
+export type FallingStrike = { id: string; ownerId: string; skillId: string; position: Vec2; remaining: number; duration: number; tuning: SkillTuning };
+
 export type GameState = {
   version: string;
   balanceVersion: string;
@@ -267,6 +269,7 @@ export type GameState = {
   rngState: number;
   arena: ArenaState;
   players: Record<string, PlayerState>;
+  strikes: FallingStrike[];
   projectiles: ProjectileState[];
   fields: FieldState[];
   walls: WallState[];
@@ -291,7 +294,7 @@ const SPAWN_POINTS: Vec2[] = [
   { x: 1770, y: 865 },
   { x: 1100, y: 220 },
   { x: 1100, y: 1020 },
-];
+].map(p => ({x:p.x*ARENA_BASELINE.width/2200,y:p.y*ARENA_BASELINE.height/1240}));
 
 const BOT_HERO_IDS: HeroId[] = ["fire-ember", "water-tide", "earth-bastion", "air-gale"];
 const ELEMENT_COLORS: Record<string, number> = {
@@ -317,6 +320,11 @@ function emptyInput(playerId: string): InputCommand {
   return { playerId, move: { x: 0, y: 0 }, aim: { x: 1, y: 0 } };
 }
 
+function scaleArenaBounds(bounds: Aabb): Aabb {
+  const dx=(bounds.min.x+bounds.max.x)/2*(ARENA_BASELINE.width/2200-1);
+  const dy=(bounds.min.y+bounds.max.y)/2*(ARENA_BASELINE.height/1240-1);
+  return { min: {x:bounds.min.x+dx,y:bounds.min.y+dy}, max: {x:bounds.max.x+dx,y:bounds.max.y+dy} };
+}
 function createArena(): ArenaState {
   return {
     width: ARENA_BASELINE.width,
@@ -327,8 +335,8 @@ function createArena(): ArenaState {
       y: ARENA_BASELINE.height - ARENA_BASELINE.margin,
     },
     center: { x: ARENA_BASELINE.width / 2, y: ARENA_BASELINE.height / 2 },
-    walls: ARENA_BASELINE.walls.map((wall) => ({ min: { ...wall.min }, max: { ...wall.max } })),
-    objects: ARENA_BASELINE.objects.map((object) => ({ ...object, min: { ...object.min }, max: { ...object.max } })),
+    walls: ARENA_BASELINE.walls.map(scaleArenaBounds),
+    objects: ARENA_BASELINE.objects.map(object => ({ ...object, ...scaleArenaBounds(object) })),
   };
 }
 
@@ -407,6 +415,7 @@ export function createMatch(options: CreateMatchOptions = {}): GameState {
     rngState: seed >>> 0,
     arena: createArena(),
     players,
+    strikes: [],
     projectiles: [],
     fields: [],
     walls: [],
@@ -545,8 +554,10 @@ export function previewSkill(
   if (!player || !player.alive) return null;
   const { definition, tuning } = getSkillForPlayer(player, index);
   const direction = normalize(aim);
-  const origin = add(player.position, scale(direction, player.radius + 8));
-  const range = tuning.range;
+  const isArea = !["projectile", "arc"].includes(tuning.behavior);
+  const origin = isArea ? { ...player.position } : add(player.position, scale(direction, player.radius + 8));
+  const aimLength = Math.hypot(aim.x, aim.y);
+  const range = isArea && aimLength > 1.01 ? Math.min(tuning.range, aimLength) : tuning.range;
   const certainty = definition.preview.dynamicSegment ? "dynamic" : "certain";
   const canPreviewPath = tuning.behavior === "projectile" || tuning.behavior === "arc";
   const maximumBounces = canPreviewPath && definition.preview.predictableBounce ? Math.min(3, tuning.projectileBounces) : 0;
@@ -754,6 +765,8 @@ function castSkill(state: GameState, player: PlayerState, index: SkillIndex): vo
   if ((player.cooldowns[skillId] ?? 0) > 0 || player.mana < tuning.manaCost) return;
   const direction = normalize(player.input.aim);
   const origin = add(player.position, scale(direction, player.radius + 10));
+  const aimLength = Math.hypot(player.input.aim.x, player.input.aim.y);
+  const targetRange = aimLength > 1.01 ? Math.min(tuning.range, aimLength) : tuning.range;
   const castEvent = addEvent(
     state,
     "CAST_RELEASE",
@@ -796,17 +809,19 @@ function castSkill(state: GameState, player: PlayerState, index: SkillIndex): vo
       [definition.element.toUpperCase(), "PROJECTILE"],
       [castEvent.id],
     );
+  } else if (skillId === "fire-flare-burst") {
+    state.strikes.push({ id: `meteor-${state.tick}-${player.id}`, ownerId: player.id, skillId, position: add(player.position,scale(direction,targetRange)), remaining: .85, duration: .85, tuning: {...tuning} });
   } else if (tuning.behavior === "radial") {
-    applyAreaEffect(state, player, add(player.position, scale(direction, tuning.range)), tuning, skillId, definition.element);
+    applyAreaEffect(state, player, add(player.position, scale(direction, targetRange)), tuning, skillId, definition.element);
   } else if (tuning.behavior === "pull") {
-    applyAreaEffect(state, player, add(player.position, scale(direction, tuning.range)), tuning, skillId, definition.element, true);
+    applyAreaEffect(state, player, add(player.position, scale(direction, targetRange)), tuning, skillId, definition.element, true);
   } else if (tuning.behavior === "field") {
     const field: FieldState = {
       id: "field-" + state.tick + "-" + player.id + "-" + index,
       ownerId: player.id,
       skillId,
       element: definition.element,
-      position: add(player.position, scale(direction, tuning.range)),
+      position: add(player.position, scale(direction, targetRange)),
       radius: tuning.effectRadius,
       remaining: tuning.lifetime,
       damage: tuning.damage,
@@ -819,7 +834,7 @@ function castSkill(state: GameState, player: PlayerState, index: SkillIndex): vo
     state.fields.push(field);
     addEvent(state, "INTERACTION", { actorId: player.id, sourceDefinitionId: skillId, position: field.position }, [definition.element.toUpperCase(), "FIELD"], [castEvent.id]);
   } else if (tuning.behavior === "wall") {
-    const rect = makeRectAt(add(player.position, scale(direction, tuning.range)), direction, definition.geometry.kind === "wall" ? definition.geometry.width : 120, 34);
+    const rect = makeRectAt(add(player.position, scale(direction, targetRange)), direction, definition.geometry.kind === "wall" ? definition.geometry.width : 120, 34);
     state.walls.push({
       id: "wall-" + state.tick + "-" + player.id + "-" + index,
       ownerId: player.id,
@@ -880,7 +895,7 @@ function sanitizeInput(command: InputCommand, playerId: string): InputCommand {
     ...command,
     playerId,
     move: { x: clampUnit(command.move.x), y: clampUnit(command.move.y) },
-    aim: normalize(command.aim),
+    aim: clampMagnitude(command.aim, 4000),
   };
 }
 
@@ -1041,7 +1056,8 @@ function updatePlayers(state: GameState, dt: number): void {
     }
     const slowed = status(player, "slowed");
     const displaced = (player.impulseRemaining ?? 0) > 0;
-    const friction = Math.pow(displaced ? .985 : slowed ? .92 : PHYSICS_BASELINE.friction, dt * 60);
+    const moving = Math.hypot(player.input.move.x, player.input.move.y) > .01;
+    const friction = Math.pow(displaced ? .985 : moving ? 1 : PHYSICS_BASELINE.friction, dt * 60);
     player.impulseRemaining = Math.max(0, (player.impulseRemaining ?? 0) - dt);
     player.position = add(player.position, scale(player.velocity, dt));
     player.velocity = scale(player.velocity, friction);
@@ -1388,6 +1404,14 @@ export function stepMatch(
   updateEnvironmental(state, safeDt);
   updateStatuses(state, safeDt);
   updateVertical(state, safeDt);
+  for (const strike of state.strikes) {
+    strike.remaining -= safeDt;
+    if (strike.remaining <= 0) {
+      const source = state.players[strike.ownerId];
+      if (source) applyAreaEffect(state, source, strike.position, strike.tuning, strike.skillId, "fire");
+    }
+  }
+  state.strikes = state.strikes.filter(strike => strike.remaining > 0);
   updateFields(state, safeDt);
   updateProjectiles(state, safeDt);
   updatePlayers(state, safeDt);
@@ -1397,6 +1421,8 @@ export function stepMatch(
 }
 
 export function startFinalRound(state: GameState): GameState {
+  state.strikes = [];
+  state.projectiles = [];
   state.mode = "final";
   state.round += 1;
   state.phase = "round";

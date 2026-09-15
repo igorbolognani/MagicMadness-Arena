@@ -1,11 +1,19 @@
 # MagicMadness Arena — Implementation Status
 
-Updated: 2026-09-02
+Updated: 2026-09-15
+
+## Current combat direction — September 15
+
+Latest explicit user direction supersedes earlier WASD and arena-size defaults.
+- Arena: 3600×2200 (2.90 times the previous area); cover centers and spawns spread proportionally, with cover footprints preserved. Higher orthographic framing keeps the previous viewing angle; wheel/pinch zoom remains available.
+- Desktop: right click sets a visible walking destination with routes around cover; QWER selects, left mouse aims/releases, 1/2 use HP/MP potions, Space dashes. Walking continues during aiming/casting. Touch joystick and drag-cast remain available.
+- Meteor Fall now telegraphs for 0.85 seconds and resolves damage/displacement on landing. The renderer follows the same falling-strike state with rock, molten seams, flame trail, ground warning and debris. Faster movement, longer projectile trails and larger basic projectiles support distance/readability.
+- Validation: unit/integration tests and TypeScript checks. Visual quality and combat feel still require a hands-on play session; no browser playtest or performance claim is implied.
 
 ## Evidence-backed baseline
 
 The repository was initialized from the complete canonical pack in
-docs/canonical/ (00 through 18). Product decisions are treated as frozen.
+docs/canonical/ (00 through 18). Product decisions are the baseline, amended by subsequent explicit user direction.
 Technical choices below are implementation baselines and remain replaceable
 only through ADRs that preserve the product contract.
 
@@ -25,7 +33,7 @@ only through ADRs that preserve the product contract.
 - Hosted account refactor: the Site now emits a Vite client plus ESM Worker,
   creates level-one accounts idempotently in D1 from the authenticated hosting
   identity and persists only released starter selection through a same-origin API.
-- Grand Meridian refactor: the simulation arena is 2200×1240 with a dynamic
+- Grand Meridian refactor: the simulation arena was initially 2200×1240 (now 3600×2200) with a dynamic
   renderer center/camera, six ruin lines, ten shrine/house colliders, four
   destructible elemental crates and four elemental landmark corners.
 - First-match population is now one player plus four bots. The four starter

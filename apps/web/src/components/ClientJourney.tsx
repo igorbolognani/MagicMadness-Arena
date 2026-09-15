@@ -7,7 +7,7 @@ type Journey = { tutorialStep: number; matches: Array<{ matchId: string; placeme
 const steps = [
   { path: "/game", title: "Welcome to the Meridian", text: "This is your home between battles. Your chosen hero stays with your account. First, meet the four elemental starters.", next: "/game/heroes", action: "Meet my heroes" },
   { path: "/game/heroes", title: "Choose your first fighter", text: "Select a hero, then inspect each spell below. Fire pressures, Water controls, Earth holds ground and Air displaces. You can change starters freely.", next: "/game/play", action: "Explore the arena" },
-  { path: "/game/play", title: "Learn before the first knockout", text: "Move with WASD or the left stick. Hold 1–4 or a spell, aim, then release. Escape or the cancel zone cancels freely. Space / right click dashes. Practice does not award account XP.", next: "/game/profile", action: "See my progression" },
+  { path: "/game/play", title: "Learn before the first knockout", text: "Right click to move, select a spell with QWER, then hold and release left click to cast. Movement continues while casting. Space dashes; 1/2 use potions. On touch, use the left stick and drag a spell. Escape cancels freely. Practice does not award account XP.", next: "/game/profile", action: "See my progression" },
   { path: "/game/profile", title: "Your journey continues here", text: "Verified battles grow your account toward level 30. Talents unlock at 10, 20 and 30. Advanced systems have their own pages; their locks explain what is still required.", next: "/game/play", action: "Ready to practice" },
 ] as const;
 

@@ -14,6 +14,7 @@ type ThreeArenaProps = {
   game: GameState;
   zoom: number;
   preview: SkillPreview | null;
+  moveTarget?: Vec2 | null;
   onAimChange: (worldPoint: Vec2) => void;
   onPointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void;
   onPointerUp: (event: ReactPointerEvent<HTMLCanvasElement>) => void;
@@ -72,11 +73,11 @@ function shadeHex(color: number, factor: number): number {
   return new THREE.Color(color).multiplyScalar(factor).getHex();
 }
 
-function material(color: number, options: { emissive?: number; transparent?: boolean; opacity?: number; roughness?: number; metalness?: number } = {}): THREE.MeshStandardMaterial {
+function material(color: number, options: { emissiveIntensity?: number; emissive?: number; transparent?: boolean; opacity?: number; roughness?: number; metalness?: number } = {}): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
     color,
     emissive: options.emissive ?? 0x000000,
-    emissiveIntensity: options.emissive ? 0.9 : 0,
+    emissiveIntensity: options.emissiveIntensity ?? (options.emissive ? 0.9 : 0),
     roughness: options.roughness ?? 0.62,
     metalness: options.metalness ?? 0.08,
     transparent: options.transparent ?? false,
@@ -390,26 +391,29 @@ function createMeteorEffect(eventId: string, position: THREE.Vector3, color: num
   root.userData.target = position.clone();
   const meteor = new THREE.Group();
   meteor.position.copy(position);
-  const core = mesh(new THREE.IcosahedronGeometry(23, 1), material(0xffd166, { emissive: color, roughness: 0.38 }));
+  const core = mesh(new THREE.IcosahedronGeometry(49, 2), material(0x37211a, { emissive: 0x8b260b, emissiveIntensity: .35, roughness: 0.92 }));
   core.rotation.set(0.3, 0.2, 0.7);
   meteor.add(core);
-  const flame = mesh(new THREE.SphereGeometry(34, 16, 10), material(color, { emissive: color, transparent: true, opacity: 0.34 }));
+  for(let i=0;i<5;i++){
+    const seam=mesh(new THREE.TorusGeometry(45,2.5,6,28),basic(i%2?0xffec90:0xff641b,.85));seam.rotation.set(i*.83,i*.57,i*.29);meteor.add(seam);
+  }
+  const flame = mesh(new THREE.SphereGeometry(59, 20, 14), material(color, { emissive: color, transparent: true, opacity: 0.34 }));
   flame.scale.set(0.85, 1.35, 0.85);
-  flame.position.y = -10;
+  flame.position.y = 18;
   meteor.add(flame);
   const trail = new THREE.Group();
   for (let index = 0; index < 5; index += 1) {
-    const tail = mesh(new THREE.SphereGeometry(Math.max(4, 13 - index * 1.7), 8, 8), material(index < 2 ? 0xffffd2 : color, { emissive: color, transparent: true, opacity: 0.68 - index * 0.1 }));
-    tail.position.set((index % 2 ? 8 : -8) * (index / 4), 25 + index * 20, 0);
+    const tail = mesh(new THREE.SphereGeometry(Math.max(9, 36 - index * 5), 8, 8), material(index < 2 ? 0xffffd2 : color, { emissive: color, transparent: true, opacity: 0.68 - index * 0.1 }));
+    tail.position.set((index % 2 ? 8 : -8) * (index / 4), 55 + index * 42, 0);
     trail.add(tail);
   }
   meteor.add(trail);
   root.add(meteor);
-  const shadow = mesh(new THREE.CircleGeometry(34, 48), basic(0x03040b, 0.58));
+  const shadow = mesh(new THREE.CircleGeometry(52, 48), basic(0x03040b, 0.58));
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.set(position.x, 3, position.z);
   root.add(shadow);
-  const ring = makeRing(76, color, 0.62);
+  const ring = makeRing(180, color, 0.62);
   ring.position.set(position.x, 4, position.z);
   root.add(ring);
   root.userData.meteor = meteor;
@@ -424,13 +428,14 @@ function createImpactEffect(eventId: string, position: THREE.Vector3, color: num
   root.userData.eventId = eventId;
   root.userData.kind = kind;
   root.userData.target = position.clone();
-  const ring = makeRing(38, color, 0.78);
+  const ring = makeRing(kind === "METEOR_IMPACT" ? 180 : 48, color, 0.78);
   ring.position.copy(position);
   ring.position.y = 5;
   root.add(ring);
   for (let index = 0; index < 8; index += 1) {
-    const spark = makeSpark(color, 5 + (index % 3) * 2, (index / 8) * Math.PI * 2);
+    const spark = makeSpark(color, (kind === "METEOR_IMPACT" ? 17 : 6) + (index % 3) * 3, (index / 8) * Math.PI * 2);
     spark.position.add(position);
+    spark.userData.origin = spark.position.clone();
     root.add(spark);
   }
   root.userData.ring = ring;
@@ -624,10 +629,11 @@ function previewSignature(preview: SkillPreview | null): string {
   });
 }
 
-export function ThreeArena({ game, zoom, preview, onAimChange, onPointerDown, onPointerUp, onPointerCancel, onPointerLeave, onWheel, onTouchStart, onTouchMove, onTouchEnd, onRendererStatus }: ThreeArenaProps) {
+export function ThreeArena({ game, zoom, preview, moveTarget, onAimChange, onPointerDown, onPointerUp, onPointerCancel, onPointerLeave, onWheel, onTouchStart, onTouchMove, onTouchEnd, onRendererStatus }: ThreeArenaProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef(game);
   const previewRef = useRef(preview);
+  const moveTargetRef = useRef(moveTarget); moveTargetRef.current = moveTarget;
   const zoomRef = useRef(zoom);
   const resizeRequestedRef = useRef(true);
   const pointerToWorldRef = useRef<(clientX: number, clientY: number) => Vec2 | null>(() => null);
@@ -695,10 +701,10 @@ export function ThreeArena({ game, zoom, preview, onAimChange, onPointerDown, on
     blueFill.position.set(0, 130, 0);
     scene.add(blueFill);
 
-    const camera = new THREE.OrthographicCamera(-1100, 1100, 620, -620, 1, 4200);
+    const camera = new THREE.OrthographicCamera(-1800, 1800, 1100, -1100, 1, 9000);
     camera.position.set(0, ARENA_CAMERA.height, ARENA_CAMERA.depth);
     camera.lookAt(0, GROUND_Y, 0);
-    camera.zoom = 1.06;
+    camera.zoom = 1;
     camera.updateProjectionMatrix();
 
     const raycaster = new THREE.Raycaster();
@@ -736,6 +742,21 @@ export function ThreeArena({ game, zoom, preview, onAimChange, onPointerDown, on
     scene.add(playersGroup, projectilesGroup, fieldsGroup, wallsGroup, effectsGroup, previewGroup, windGroup);
 
     const chibis = new Map<string, ChibiNode>();
+    const moveMarker = new THREE.Group();
+    moveMarker.add(makeRing(30,0x9effcb,.95),makeRing(43,0x9effcb,.35));
+    const pointerGem=mesh(new THREE.ConeGeometry(9,22,4),basic(0xd4ffe7));pointerGem.rotation.z=Math.PI;pointerGem.position.y=28;moveMarker.add(pointerGem);scene.add(moveMarker);
+    const fallingNodes = new Map<string,EffectNode>();
+    function syncFalling(current:GameState) {
+      const ids=new Set(current.strikes.map(strike=>strike.id));
+      for(const [id,node] of fallingNodes)if(!ids.has(id)){scene.remove(node);disposeObject(node);fallingNodes.delete(id);}
+      for(const strike of current.strikes){
+        let node=fallingNodes.get(strike.id);
+        if(!node){node=createMeteorEffect(strike.id,worldPosition(strike.position.x,strike.position.y),0xff681d);scene.add(node);fallingNodes.set(strike.id,node);}
+        const progress=1-strike.remaining/strike.duration;
+        if(node.userData.meteor){node.userData.meteor.position.y=45+760*(1-progress*progress);node.userData.meteor.position.x=node.userData.target!.x-180*(1-progress);node.userData.meteor.rotation.y=progress*2.6;}
+        if(node.userData.ring){node.userData.ring.scale.setScalar(strike.tuning.effectRadius/180);(node.userData.ring.material as THREE.MeshBasicMaterial).opacity=.35+progress*.6;}
+      }
+    }
     const projectileNodes = new Map<string, THREE.Group>();
     const fieldNodes = new Map<string, THREE.Group>();
     const wallNodes = new Map<string, THREE.Group>();
@@ -852,10 +873,10 @@ export function ThreeArena({ game, zoom, preview, onAimChange, onPointerDown, on
             const halo = mesh(new THREE.TorusGeometry(size * 1.18, Math.max(1.6, size * 0.1), 7, 36), basic(projectile.element === "water" ? 0xd7fbff : projectile.element === "air" ? 0xf0eaff : 0xffe19a, 0.62));
             halo.rotation.x = Math.PI / 2;
             node.add(halo);
-            const tailCount = quality === "low" ? 1 : quality === "medium" ? 2 : 3;
+            const tailCount = quality === "low" ? 3 : quality === "medium" ? 5 : 7;
             for (let index = 0; index < tailCount; index += 1) {
-              const tail = mesh(new THREE.SphereGeometry(Math.max(3, projectile.radius * (0.55 - index * 0.12)), 8, 8), material(color, { emissive: color, transparent: true, opacity: 0.5 - index * 0.12 }));
-              tail.position.z = 14 + index * 14;
+              const tail = mesh(new THREE.SphereGeometry(Math.max(3, projectile.radius * (0.85 - index * 0.10)), 8, 8), material(color, { emissive: color, transparent: true, opacity: 0.55 - index * 0.07 }));
+              tail.position.z = -28 - index * 30;
               tail.position.y = index * 3;
               node.add(tail);
             }
@@ -864,8 +885,8 @@ export function ThreeArena({ game, zoom, preview, onAimChange, onPointerDown, on
           projectileNodes.set(projectile.id, node);
         }
         node.position.copy(worldPosition(projectile.position.x, projectile.position.y, GROUND_Y + (projectile.height ?? 20)));
-        node.rotation.y = -Math.atan2(projectile.velocity.y, projectile.velocity.x) - Math.PI / 2;
-        node.rotation.z += 0.12;
+        node.rotation.y = heroFacing(projectile.velocity);
+        if(node.children[0]) node.children[0].rotation.z = currentGame.time*2.5;
       });
     }
 
@@ -980,7 +1001,7 @@ export function ThreeArena({ game, zoom, preview, onAimChange, onPointerDown, on
           const isImpact = ["DAMAGE", "COLLISION", "IMPULSE", "KO", "HAZARD_ENTER"].includes(event.type);
           if (!isImpact && !(event.type === "INTERACTION" && skill)) continue;
           node = effectPool.acquire(poolKey, () => {
-            if (event.type === "INTERACTION" && skill?.id === "fire-flare-burst") return createMeteorEffect(event.id, position, color);
+            if (event.type === "INTERACTION" && skill?.id === "fire-flare-burst") return createImpactEffect(event.id, position, color, "METEOR_IMPACT");
             if (isImpact) return createImpactEffect(event.id, position, color, event.type);
             if (!skill) throw new Error("Effect pool requested without a skill");
             return createElementalEffect(event.id, position, color, skill.element, getSkillTuning(skill.id).behavior, skill.id);
@@ -1012,6 +1033,10 @@ export function ThreeArena({ game, zoom, preview, onAimChange, onPointerDown, on
         } else {
           const ring = node.userData.ring;
           const progress = THREE.MathUtils.clamp(age / 24, 0, 1);
+          if (node.userData.kind === "METEOR_IMPACT") for(const child of node.children){
+            const origin=child.userData.origin as THREE.Vector3 | undefined;
+            if(origin){const center=node.userData.target!;child.position.set(center.x+(origin.x-center.x)*(1+progress*4),origin.y+Math.sin(progress*Math.PI)*130,center.z+(origin.z-center.z)*(1+progress*4));child.rotation.x=progress*4;child.scale.setScalar(1-progress*.8);}
+          }
           if (ring) { ring.scale.setScalar(0.6 + progress * 1.2); (ring.material as THREE.MeshBasicMaterial).opacity = (1 - progress) * 0.8; }
         }
       }
@@ -1023,7 +1048,7 @@ export function ThreeArena({ game, zoom, preview, onAimChange, onPointerDown, on
       const height = Math.max(1, rect.height);
       renderer.setSize(width, height, false);
       const aspect = width / height;
-      const viewHeight = (initialGame.arena.height * 1.12) / Math.max(0.58, zoomRef.current);
+      const viewHeight = Math.max(initialGame.arena.height * .98, initialGame.arena.width / aspect * 1.04) / Math.max(0.58, zoomRef.current);
       camera.left = (-viewHeight * aspect) / 2;
       camera.right = (viewHeight * aspect) / 2;
       camera.top = viewHeight / 2;
@@ -1044,6 +1069,10 @@ export function ThreeArena({ game, zoom, preview, onAimChange, onPointerDown, on
         updatePreview(previewGroup, previewRef.current);
         lastPreviewSignature = nextPreviewSignature;
       }
+      const movePoint=moveTargetRef.current;
+      moveMarker.visible=!!movePoint;
+      if(movePoint){moveMarker.position.copy(worldPosition(movePoint.x,movePoint.y,GROUND_Y+4));moveMarker.scale.setScalar(1+Math.sin(elapsed*.009)*.12);}
+      syncFalling(currentGame);
       syncPlayers(currentGame, elapsed);
       syncProjectiles(currentGame);
       syncFields(currentGame);
@@ -1073,6 +1102,7 @@ export function ThreeArena({ game, zoom, preview, onAimChange, onPointerDown, on
       observer.disconnect();
       chibis.forEach((node) => node.userData.controller?.dispose());
       clearGroup(playersGroup);
+      fallingNodes.forEach(node=>{scene.remove(node);disposeObject(node);});fallingNodes.clear();scene.remove(moveMarker);disposeObject(moveMarker);
       clearGroup(projectilesGroup);
       clearGroup(fieldsGroup);
       clearGroup(wallsGroup);

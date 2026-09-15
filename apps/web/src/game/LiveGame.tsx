@@ -75,7 +75,7 @@ export function LiveGame({ heroId, onExit, matchId = "local-playtest", mode = "s
       const physicsStarted = performance.now();
       if (!pausedRef.current) {
         while (accumulator >= FIXED_STEP_SECONDS) {
-          const next = controls.input.consume();
+          const next = controls.input.consume(gameRef.current.players.player?.position, [...gameRef.current.arena.walls, ...gameRef.current.arena.objects.filter(o => o.hp > 0), ...gameRef.current.walls]);
           const command: InputCommand = { playerId: "player", move: next.move, aim: next.aim, ...next.actions };
           stepMatch(gameRef.current, [command]);
           accumulator -= FIXED_STEP_SECONDS;

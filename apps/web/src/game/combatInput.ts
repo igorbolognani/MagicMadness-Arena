@@ -1,7 +1,8 @@
 import type { SkillIndex } from "@mma/game-core";
-import type { Vec2 } from "@mma/physics";
+import { findWalkPath } from "./clickNavigation";
+import type { Aabb, Vec2 } from "@mma/physics";
 
-export const ARENA_CAMERA = { height: 1540, depth: 1280, ground: 10 };
+export const ARENA_CAMERA = { height: 2460, depth: 2050, ground: 10 };
 const elevationSin = (ARENA_CAMERA.height - ARENA_CAMERA.ground) / Math.hypot(ARENA_CAMERA.height - ARENA_CAMERA.ground, ARENA_CAMERA.depth);
 
 /** Inverse orthographic ground projection: screen down corresponds to world +Y. */
@@ -17,6 +18,12 @@ export type CombatActions = Partial<{ releaseSkill: SkillIndex; dash: boolean; h
 
 export class CombatInput {
   readonly keys = new Set<string>();
+  selectedSkill: SkillIndex = 0;
+  destination: Vec2 | null = null;
+  aimTarget: Vec2 | null = null;
+  private path: Vec2[] = [];
+  private routeKey = "";
+  setDestination(point: Vec2) { this.destination = { ...point }; this.routeKey = ""; }
   aim: Vec2 = { x: 1, y: 0 };
   touchMove: Vec2 = { x: 0, y: 0 };
   movementPointer: number | null = null;
@@ -37,15 +44,23 @@ export class CombatInput {
   action(key: "dash" | "healthPotion" | "manaPotion"): void { this.actions[key] = true; }
   reset(): void {
     this.keys.clear(); this.touchMove = { x: 0, y: 0 }; this.movementPointer = null;
-    this.held = null; this.actions = {};
+    this.held = null; this.aimTarget = null; this.actions = {}; this.destination = null; this.path = []; this.routeKey = "";
   }
-  move(): Vec2 {
-    const x = Number(this.keys.has("d") || this.keys.has("arrowright")) - Number(this.keys.has("a") || this.keys.has("arrowleft"));
-    const y = Number(this.keys.has("s") || this.keys.has("arrowdown")) - Number(this.keys.has("w") || this.keys.has("arrowup"));
-    return x || y ? screenToArenaVector({ x, y }) : this.touchMove;
+  move(position?: Vec2, obstacles: Aabb[] = []): Vec2 {
+    if (this.movementPointer !== null || Math.hypot(this.touchMove.x,this.touchMove.y) > .01) { this.destination = null; return this.touchMove; }
+    if (!position || !this.destination) return { x: 0, y: 0 };
+    const key=JSON.stringify([this.destination,obstacles]);
+    if (key !== this.routeKey) { this.path=findWalkPath(position,this.destination,obstacles); this.routeKey=key; }
+    while(this.path[0] && Math.hypot(this.path[0].x-position.x,this.path[0].y-position.y)<12) this.path.shift();
+    const next=this.path[0];
+    if(!next){this.destination=null;return {x:0,y:0};}
+    const x=next.x-position.x,y=next.y-position.y,length=Math.hypot(x,y);
+    return {x:x/length,y:y/length};
   }
-  consume(): { move: Vec2; aim: Vec2; actions: CombatActions } {
+  consume(position?: Vec2, obstacles: Aabb[] = []): { move: Vec2; aim: Vec2; actions: CombatActions } {
     const actions = this.actions; this.actions = {};
-    return { move: this.move(), aim: { ...this.aim }, actions };
+    if(position && this.aimTarget) this.aim = {x:this.aimTarget.x-position.x,y:this.aimTarget.y-position.y};
+    return { move: this.move(position,obstacles), aim: { ...this.aim }, actions };
   }
+
 }

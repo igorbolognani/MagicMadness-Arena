@@ -45,6 +45,7 @@ export function VerifiedGame({ heroId, accountExperience, onExit }: { heroId: He
   const resultRef = useRef<VerifiedResultEnvelope | null>(null);
   const disposedRef = useRef(false);
 
+  const latestGame = useRef(game); latestGame.current = game;
   const controls = useCombatControls(game?.players.player?.position, connectionState === "connected" && game?.phase !== "results");
   const { zoom, heldSkill } = controls;
 
@@ -137,7 +138,8 @@ export function VerifiedGame({ heroId, accountExperience, onExit }: { heroId: He
     const interval = window.setInterval(() => {
       const socket = socketRef.current;
       if (!socket || socket.readyState !== WebSocket.OPEN || connectionState !== "connected") return;
-      const next = controls.input.consume();
+      const live = latestGame.current;
+      const next = controls.input.consume(live?.players.player?.position, live ? [...live.arena.walls, ...live.arena.objects.filter(o => o.hp > 0), ...live.walls] : []);
       socket.send(JSON.stringify(inputEnvelope(sequenceRef.current++, tickRef.current, next.move, next.aim, next.actions)));
     }, 1000 / 30);
     return () => window.clearInterval(interval);

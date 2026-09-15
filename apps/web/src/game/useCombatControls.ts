@@ -9,7 +9,7 @@ const clampZoom = (value: number) => Math.max(.58, Math.min(1.75, value));
 export function useCombatControls(position: Vec2 | undefined, enabled = true) {
   const input = useRef(new CombatInput()).current;
   const [, refresh] = useState(0);
-  const [zoom, setZoom] = useState(1.06);
+  const [zoom, setZoom] = useState(.92);
   const [cancelActive, setCancelActive] = useState(false);
   const movementPadRef = useRef<HTMLDivElement>(null);
   const cancelZoneRef = useRef<HTMLDivElement>(null);
@@ -17,6 +17,7 @@ export function useCombatControls(position: Vec2 | undefined, enabled = true) {
   current.current = { position, enabled };
   const pinchDistance = useRef<number | null>(null);
   const pinching = useRef(false);
+  const pointerWorld = useRef<Vec2 | null>(null);
   const redraw = () => refresh(value => value + 1);
 
   function stick(vector: Vec2) {
@@ -48,14 +49,14 @@ export function useCombatControls(position: Vec2 | undefined, enabled = true) {
       if (!current.current.enabled) return;
       const key = event.key.toLowerCase();
       input.keys.add(key);
-      if ([" ", "q", "e", "1", "2", "3", "4", "escape", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) event.preventDefault();
+      if ([" ", "q", "w", "e", "r", "1", "2", "escape"].includes(key)) event.preventDefault();
       if (event.repeat) return;
       if (key === "escape") cancel();
-      if (key === "q") input.action("healthPotion");
-      if (key === "e") input.action("manaPotion");
+      if (key === "1") input.action("healthPotion");
+      if (key === "2") input.action("manaPotion");
       if (key === " ") input.action("dash");
-      const index = ["1", "2", "3", "4"].indexOf(key);
-      if (index >= 0 && !pinching.current && input.begin(`key:${key}`, index as SkillIndex)) redraw();
+      const index = ["q", "w", "e", "r"].indexOf(key);
+      if (index >= 0 && !pinching.current) { input.selectedSkill = index as SkillIndex; redraw(); }
     };
     const up = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase(); input.keys.delete(key);
@@ -92,6 +93,8 @@ export function useCombatControls(position: Vec2 | undefined, enabled = true) {
   function beginSkill(event: PointerEvent<HTMLButtonElement>, index: SkillIndex) {
     if (!current.current.enabled || pinching.current || event.button !== 0) return;
     event.preventDefault();
+    input.selectedSkill = index;
+    if (event.pointerType === "mouse") { redraw(); return; }
     if (input.begin(owner(event.pointerId), index)) { event.currentTarget.setPointerCapture(event.pointerId); redraw(); }
   }
   function dragSkill(event: PointerEvent<HTMLButtonElement>) {
@@ -101,11 +104,14 @@ export function useCombatControls(position: Vec2 | undefined, enabled = true) {
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left - rect.width / 2, y = event.clientY - rect.top - rect.height / 2;
     if (Math.hypot(x, y) < 9) return;
+    input.aimTarget = null;
     input.aim = screenToArenaVector({ x, y }); redraw();
   }
   function updateAim(point: Vec2) {
+    pointerWorld.current = point;
     const player = current.current.position;
     if (!player || pinching.current || input.held?.owner.startsWith("pointer:")) return;
+    input.aimTarget = point;
     input.aim = { x: point.x - player.x, y: point.y - player.y }; redraw();
   }
   function distance(event: TouchEvent<HTMLCanvasElement>) {
@@ -128,14 +134,15 @@ export function useCombatControls(position: Vec2 | undefined, enabled = true) {
   }
 
   return {
-    input, heldSkill: input.held?.skill ?? null, aim: input.aim, zoom, cancelActive, cancel, reset,
+    input, selectedSkill: input.selectedSkill, moveTarget: input.destination, heldSkill: input.held?.skill ?? null, aim: input.aim, zoom, cancelActive, cancel, reset,
     movementPadRef, cancelZoneRef, beginMove, movePointer, beginSkill, dragSkill,
     endPointer: (event: PointerEvent<HTMLElement>) => endPointer(event, false),
     cancelPointer: (event: PointerEvent<HTMLElement>) => endPointer(event, true),
     fireOneShot: (key: "dash" | "healthPotion" | "manaPotion") => { if (current.current.enabled) input.action(key); },
     arenaProps: {
+      moveTarget: input.destination,
       onAimChange: updateAim,
-      onPointerDown: (event: PointerEvent<HTMLCanvasElement>) => { if (!current.current.enabled || event.pointerType === "touch") return; if (event.button === 2) { event.preventDefault(); input.action("dash"); } else if (event.button === 0 && input.begin(`arena:${event.pointerId}`, 0)) { event.currentTarget.setPointerCapture(event.pointerId); redraw(); } },
+      onPointerDown: (event: PointerEvent<HTMLCanvasElement>) => { if (!current.current.enabled || event.pointerType === "touch") return; if (event.button === 2) { event.preventDefault(); if (pointerWorld.current) input.setDestination(pointerWorld.current); redraw(); } else if (event.button === 0 && input.begin(`arena:${event.pointerId}`, input.selectedSkill)) { event.currentTarget.setPointerCapture(event.pointerId); redraw(); } },
       onPointerUp: (event: PointerEvent<HTMLCanvasElement>) => endPointer(event, false),
       onPointerCancel: (event: PointerEvent<HTMLCanvasElement>) => endPointer(event, true),
       onPointerLeave: () => undefined,

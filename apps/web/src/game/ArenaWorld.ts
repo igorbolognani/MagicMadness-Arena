@@ -188,12 +188,12 @@ export function buildWindfallArena(scene: THREE.Scene, game: GameState): ArenaWo
   const objectNodes = new Map<string, THREE.Group>();
   scene.add(root);
 
-  const abyss = mesh(new THREE.PlaneGeometry(game.arena.width + 720, game.arena.height + 720), standard(0x071d2b, 0.32, 0.15));
+  const abyss = mesh(new THREE.PlaneGeometry(game.arena.width + 720, game.arena.height + 720), new THREE.MeshStandardMaterial({color:0x8f210b,emissive:0xff4809,emissiveIntensity:.9,roughness:.6}));
   abyss.rotation.x = -Math.PI / 2;
   abyss.position.y = -42;
   root.add(abyss);
 
-  const mist = mesh(new THREE.PlaneGeometry(game.arena.width + 520, game.arena.height + 520), unlit(0x1c7890, 0.1));
+  const mist = mesh(new THREE.PlaneGeometry(game.arena.width + 520, game.arena.height + 520), unlit(0xff7429, 0.18));
   mist.rotation.x = -Math.PI / 2;
   mist.position.y = -30;
   root.add(mist);
@@ -210,7 +210,7 @@ export function buildWindfallArena(scene: THREE.Scene, game: GameState): ArenaWo
 
   addEdgeRocks(root, game.arena.width - 42, game.arena.height - 42);
 
-  const hazard = glow(0xe84065, 0.52);
+  const hazard = glow(0xff661a, 0.78);
   for (const side of [-1, 1]) {
     const vertical = mesh(new THREE.PlaneGeometry(30, game.arena.height - 90), hazard.clone());
     vertical.rotation.x = -Math.PI / 2;

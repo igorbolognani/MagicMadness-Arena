@@ -35,7 +35,7 @@ describe("MagicMadness deterministic game core", () => {
     const elements = Object.values(state.players).map((player) => getHeroSkill(player.heroId, 0).element);
     expect(Object.keys(state.players)).toHaveLength(5);
     expect([...new Set(elements)].sort()).toEqual(["air", "earth", "fire", "water"]);
-    expect(state.arena).toMatchObject({ width: 2200, height: 1240, center: { x: 1100, y: 620 } });
+    expect(state.arena).toMatchObject({ width: 3600, height: 2200, center: { x: 1800, y: 1100 } });
   });
 
   it("exposes a preview that matches the selected skill data", () => {
@@ -48,12 +48,14 @@ describe("MagicMadness deterministic game core", () => {
 
   it("stops a non-bouncing telegraph at cover and predicts a supported bounce", () => {
     const blockedState = createMatch({ seed: 9, playerHeroId: "fire-ember", botCount: 0 });
+    blockedState.arena.objects = []; blockedState.arena.walls = [{min:{x:800,y:300},max:{x:830,y:450}}];
     blockedState.players.player!.position = { x: 500, y: 378 };
     const blocked = previewSkill(blockedState, "player", 0, { x: 1, y: 0 });
     expect(blocked?.blocked).toBe(true);
     expect(blocked?.impact.x).toBeLessThan((blocked?.origin.x ?? 0) + (blocked?.range ?? 0));
 
     const bounceState = createMatch({ seed: 10, playerHeroId: "fire-ember", botCount: 0 });
+    bounceState.arena.objects = []; bounceState.arena.walls = [{min:{x:800,y:300},max:{x:830,y:450}}];
     bounceState.players.player!.position = { x: 500, y: 378 };
     const bounce = previewSkill(bounceState, "player", 3, { x: 1, y: 0 });
     expect(bounce?.blocked).toBe(false);
@@ -65,6 +67,8 @@ describe("MagicMadness deterministic game core", () => {
     const state = createMatch({ seed: 11, playerHeroId: "earth-bastion", botCount: 1 });
     const target = state.players["bot-1"];
     if (!target) throw new Error("missing bot");
+    state.arena.walls = []; state.arena.objects = [];
+    state.players.player!.position = {x:430,y:375}; target.isBot = false;
     target.position = { x: 650, y: 375 };
     stepMatch(state, [{ ...idle(), aim: { x: 1, y: 0 }, releaseSkill: 2 }]);
     expect(target.vertical.state).toBe("rising");
@@ -79,7 +83,7 @@ describe("MagicMadness deterministic game core", () => {
     const crate = state.arena.objects.find((object) => object.id === "crate-fire");
     if (!crate) throw new Error("missing fire crate");
     crate.hp = 10;
-    state.players.player!.position = { x: 520, y: 420 };
+    state.players.player!.position = { x: crate.min.x - 100, y: (crate.min.y+crate.max.y)/2 };
     stepMatch(state, [{ ...idle(), aim: { x: 1, y: 0 }, releaseSkill: 0 }]);
     run(state, 30);
     expect(crate.hp).toBe(0);
@@ -190,4 +194,35 @@ describe("Warlock displacement and account contracts", () => {
     stepMatch(state, [{ ...idle(), releaseSkill: 3 }]);
     expect(state.projectiles).toHaveLength(1);
   });
+});
+
+
+it("telegraphs a meteor before impact and lets a target escape", () => {
+  const state=createMatch({playerHeroId:"fire-ember",botCount:1});
+  state.arena.walls=[];state.arena.objects=[];
+  const player=state.players.player!,target=state.players["bot-1"]!;
+  player.position={x:1000,y:1000};target.position={x:1400,y:1000};target.isBot=false;
+  const initialHp=target.hp;
+  const aim={x:400,y:0};
+  expect(previewSkill(state,"player",1,aim)?.impact).toEqual(target.position);
+  stepMatch(state,[{...idle(),aim,releaseSkill:1}]);
+  expect(state.strikes).toHaveLength(1);expect(target.hp).toBe(initialHp);
+  run(state,30);expect(target.hp).toBe(initialHp);
+  target.position={x:1800,y:1000};run(state,25);
+  expect(state.strikes).toHaveLength(0);expect(target.hp).toBe(initialHp);
+  expect(state.events.some(event=>event.type==="INTERACTION"&&event.sourceDefinitionId==="fire-flare-burst")).toBe(true);
+});
+
+
+it("applies meteor damage and displacement only when it lands", () => {
+  const state=createMatch({playerHeroId:"fire-ember",botCount:1});
+  state.arena.walls=[];state.arena.objects=[];
+  const player=state.players.player!,target=state.players["bot-1"]!;
+  player.position={x:1000,y:1000};target.position={x:1420,y:1000};target.isBot=false;
+  const initialHp=target.hp;
+  stepMatch(state,[{...idle(),aim:{x:400,y:0},releaseSkill:1}]);
+  run(state,30);expect(target.hp).toBe(initialHp);
+  run(state,22);expect(target.hp).toBeLessThan(initialHp);
+  expect(target.velocity.x).toBeGreaterThan(0);
+  expect(state.strikes).toHaveLength(0);
 });

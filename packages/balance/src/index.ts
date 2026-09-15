@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-export const BALANCE_VERSION = "balance-baseline-0.3.0";
+export const BALANCE_VERSION = "balance-baseline-0.4.0";
 export const PHYSICS_BASELINE = {
   fixedStepSeconds: 1 / 60,
-  moveSpeed: 245,
+  moveSpeed: 330,
   acceleration: 1350,
   friction: 0.82,
   playerRadius: 24,
@@ -118,22 +118,22 @@ const radial = (
 });
 
 export const skillBalance: Record<string, SkillTuning> = {
-  "fire-ember-bolt": projectile(1.2, 12, 18, 92, 560, 670, 14),
-  "fire-flare-burst": radial(3.8, 24, 24, 150, 260, 104, "burning", 3.2, 12),
+  "fire-ember-bolt": projectile(1.2, 12, 18, 110, 880, 760, 24),
+  "fire-flare-burst": radial(4.8, 28, 32, 210, 800, 180, "burning", 3.2, 12),
   "fire-scorch-trail": { behavior: "field", cooldown: 7, manaCost: 30, damage: 7, knockback: 10, range: 310, projectileSpeed: 0, radius: 36, lifetime: 5, effectRadius: 72, status: "burning", statusDuration: 2.6, statusStrength: 10, projectileBounces: 0 },
-  "fire-solar-orb": projectile(5.4, 34, 32, 185, 480, 410, 22, 3.6, 1, "burning", 2.5, 8),
+  "fire-solar-orb": projectile(5.4, 34, 32, 220, 820, 470, 38, 3.6, 1, "burning", 2.5, 8),
 
-  "water-pressure-jet": projectile(1.1, 11, 12, 112, 520, 720, 15, 2.1, 0, "slowed", 1.7, 0.35),
+  "water-pressure-jet": projectile(1.1, 11, 12, 130, 840, 800, 25, 2.1, 0, "slowed", 1.7, 0.35),
   "water-undertow": { behavior: "pull", cooldown: 4.5, manaCost: 25, damage: 8, knockback: -135, range: 300, projectileSpeed: 0, radius: 52, lifetime: 0, effectRadius: 118, status: "slowed", statusDuration: 2.1, statusStrength: 0.42, projectileBounces: 0 },
   "water-tide-field": { behavior: "field", cooldown: 7.5, manaCost: 28, damage: 4, knockback: 5, range: 330, projectileSpeed: 0, radius: 55, lifetime: 5.2, effectRadius: 92, status: "slowed", statusDuration: 1.2, statusStrength: 0.55, projectileBounces: 0 },
   "water-wave-wall": { behavior: "wall", cooldown: 6.5, manaCost: 28, damage: 9, knockback: 80, range: 300, projectileSpeed: 0, radius: 18, lifetime: 4.5, effectRadius: 70, status: "slowed", statusDuration: 1.8, statusStrength: 0.45, projectileBounces: 0 },
 
-  "earth-stone-shard": projectile(1.45, 13, 20, 140, 430, 560, 17),
+  "earth-stone-shard": projectile(1.45, 13, 20, 160, 740, 640, 28),
   "earth-bulwark": { behavior: "wall", cooldown: 8.5, manaCost: 30, damage: 0, knockback: 0, range: 300, projectileSpeed: 0, radius: 20, lifetime: 6.5, effectRadius: 90, projectileBounces: 0 },
   "earth-quake": radial(5.6, 30, 18, 120, 220, 112, "airborne", 0.9, 1),
   "earth-boulder": { behavior: "arc", cooldown: 5.8, manaCost: 32, damage: 36, knockback: 220, range: 500, projectileSpeed: 330, radius: 26, lifetime: 3.5, effectRadius: 26, projectileBounces: 0 },
 
-  "air-gust": projectile(1.25, 12, 11, 145, 500, 760, 13),
+  "air-gust": projectile(1.25, 12, 11, 165, 880, 840, 23),
   "air-vortex": { behavior: "pull", cooldown: 5.4, manaCost: 28, damage: 9, knockback: -155, range: 310, projectileSpeed: 0, radius: 50, lifetime: 0, effectRadius: 112, status: "wind-charged", statusDuration: 2, statusStrength: 1, projectileBounces: 0 },
   "air-wind-shear": { behavior: "arc", cooldown: 3.4, manaCost: 18, damage: 19, knockback: 105, range: 420, projectileSpeed: 530, radius: 18, lifetime: 1.5, effectRadius: 18, projectileBounces: 0 },
   "air-updraft": { behavior: "dash", cooldown: 5.2, manaCost: 22, damage: 9, knockback: 100, range: 290, projectileSpeed: 0, radius: 24, lifetime: 0, effectRadius: 60, projectileBounces: 0 },
@@ -147,8 +147,8 @@ export const HERO_BASE_ATTRIBUTES: Record<string, { force: number; resilience: n
 };
 
 export const ARENA_BASELINE = {
-  width: 2200,
-  height: 1240,
+  width: 3600,
+  height: 2200,
   margin: 58,
   hazardKoDistance: PHYSICS_BASELINE.hazardKoDistance,
   roundDurationSeconds: 120,

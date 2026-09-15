@@ -316,7 +316,7 @@ function PublicPage({ kind, navigate }: { kind: "how" | "heroes" | "elements" | 
 
 function CombatExplainer() {
   const steps = [
-    ["Input", "Move with WASD, arrows or the landscape pad. Aim with the pointer; zoom with wheel or pinch."],
+    ["Input", "Right click to move. QWER selects a spell; hold and release left click to cast. Space dashes; 1/2 use potions. Wheel zooms."],
     ["Preview", "Hold a skill to see its path. Certain, predicted and dynamic segments stay visually distinct."],
     ["Impact", "Damage, knockback, fields, walls and hazards resolve in the deterministic Game Core."],
     ["Attribution", "The result keeps Match Score separate from Performance Score, including KO and assist credit."],

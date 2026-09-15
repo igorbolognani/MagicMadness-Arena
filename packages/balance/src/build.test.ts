@@ -12,10 +12,11 @@ describe("account build caps and unlocks", () => {
   });
   it("applies a compatible rune with its cost without mutating shared balance", () => {
     const base = getSkillTuning("fire-ember-bolt");
+    const original = { ...base };
     const tuned = tuneAccountSkill(base, { accountLevel: 5, talents: [], runes: ["rune-swift-edge"] });
     expect(tuned.projectileSpeed).toBeCloseTo(base.projectileSpeed * 1.1);
     expect(tuned.radius).toBeCloseTo(base.radius * .92);
-    expect(base.projectileSpeed).toBe(670);
+    expect(base).toEqual(original);
     const field = getSkillTuning("fire-scorch-trail");
     expect(tuneAccountSkill(field, { accountLevel: 5, talents: [], runes: ["rune-swift-edge"] })).toEqual(field);
   });

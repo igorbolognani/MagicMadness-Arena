@@ -117,7 +117,7 @@ const skill = (
 
 export const skillDefinitions: SkillDefinition[] = [
   skill("fire-ember-bolt", "Ember Bolt", "fire-ember", "fire", { kind: "line", range: 560 }, "fire-ember-bolt", "Fast projectile with reliable push.", ["FIRE", "PROJECTILE"], true),
-  skill("fire-flare-burst", "Flare Burst", "fire-ember", "fire", { kind: "circle", range: 390 }, "fire-flare-burst", "Radial explosion that displaces nearby targets.", ["FIRE", "AREA", "DESTRUCTIVE"]),
+  skill("fire-flare-burst", "Meteor Fall", "fire-ember", "fire", { kind: "circle", range: 390 }, "fire-flare-burst", "Call down a burning meteor. A ground warning gives enemies 0.85 seconds to escape before the impact throws them outward.", ["FIRE", "AREA", "DESTRUCTIVE"]),
   skill("fire-scorch-trail", "Scorch Trail", "fire-ember", "fire", { kind: "trail", range: 310, width: 72 }, "fire-scorch-trail", "Leaves a burning lane that punishes pursuit.", ["FIRE", "AREA", "GROUND"]),
   skill("fire-solar-orb", "Solar Orb", "fire-ember", "fire", { kind: "bounce", range: 480, bounces: 1 }, "fire-solar-orb", "A heavy orb that can bounce once from a wall.", ["FIRE", "PROJECTILE", "BOUNCE"], true),
 
