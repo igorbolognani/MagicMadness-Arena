@@ -229,3 +229,7 @@ At far zoom:
 - combat icons readable at actual size;
 - mobile controls pass thumb-reach/safe-area tests;
 - pinch/zoom never disturbs HUD.
+
+## Elemental portal and client language — 2026-09-02
+
+Public pages use an original late-2000s online-game portal hierarchy: service ribbon, launcher navigation, news board, dense panels and elemental accents. The authenticated shell behaves like a game launcher; each route receives a distinct hero/system focus. Combat follows an arena-first hierarchy inspired by readable top-down spell brawlers: minimal center obstruction, left movement, right radial skills, held-cast floor preview, compact top status and hidden diagnostics. This is reference to interaction hierarchy, never asset or brand imitation.

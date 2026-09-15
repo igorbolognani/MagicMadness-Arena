@@ -91,3 +91,7 @@ They:
 - counter matchup remains winnable;
 - every status documented;
 - unique mechanic has a test scenario.
+
+## Expanded 3D gate — 2026-09-02
+
+An expanded hero cannot become playable from data alone. It needs a complete `visualPackageId`, body silhouette, animation-state mapping, four skill icons, telegraphs, projectile/field/wall models, impact VFX, showcase pose and far-zoom validation. Contract-only heroes remain visible as lore/system entries, never disguised as production-ready 3D content.

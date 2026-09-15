@@ -191,3 +191,7 @@ Record:
 - two impulses compound deterministically;
 - preview cancel spends nothing;
 - no live-combat action requires a deep menu.
+
+## 3D presentation implication — 2026-09-02
+
+The 3D layer may animate anticipation, cast, impact, knockback, airborne motion, landing, KO and recovery, but never changes timing or collision. Hold/drag/release remains the combat verb: the projected preview must show certain, predicted, blocked and dynamic segments on the actual arena floor at any camera zoom.

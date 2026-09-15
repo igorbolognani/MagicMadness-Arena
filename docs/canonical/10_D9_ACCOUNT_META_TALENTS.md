@@ -124,3 +124,7 @@ Secondary:
 - glossary explains every term;
 - source breakdown explains every build value;
 - post-30 progression rewards identity, not raw global power.
+
+## Hosted account baseline — 2026-09-02
+
+The Site Worker owns the initial account record in D1, keyed by `oai-authenticated-user-id`. First access creates level 1, XP 0 and `fire-ember`; selecting any released starter persists server-side. Browser storage is permitted only for local development convenience and is never production authority. Match progression writes will be added only with idempotent result receipts.

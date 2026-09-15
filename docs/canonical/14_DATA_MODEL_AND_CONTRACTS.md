@@ -67,6 +67,22 @@ PlayerHero
 - cosmeticSelection
 ```
 
+## Presentation bridge
+
+The simulation snapshot is authoritative for gameplay coordinates and state.
+The 3D client derives presentation data without changing those values:
+
+```text
+GameState.position.x/y         → Three scene x/z
+PlayerState.vertical.height    → Three scene y
+grounded shadow/ring           → Three floor plane
+SkillPreview.path              → 3D telegraph segments
+HeroDefinition.visualPackageId → cached GLTF visual package (procedural only after explicit load failure)
+```
+
+Visual packages may change meshes, animation clips, materials and VFX, but they
+cannot own collision, hit detection, damage, cooldown, score or random state.
+
 ## Skill
 
 ```text
@@ -379,3 +395,9 @@ A completed match must remain explainable after later balance patches through im
 Store minimal identity data required for account operation.
 
 Sign in with ChatGPT does not imply storing ChatGPT conversations, memory or unrelated account data.
+
+## Deployed account contract — 2026-09-02
+
+`accounts(account_id, display_name, email, level, experience, selected_hero_id, created_at, updated_at)` is the first D1 table. `GET /api/account` idempotently creates/refreshes identity metadata and returns the account; `PATCH /api/account/hero` accepts only the four released starter IDs. The header-derived authenticated user ID is the authorization boundary. Match result persistence requires a later receipt table and server-signed idempotency key.
+
+`MatchResultReceipt` v1 now closes that later dependency. It contains receipt/match/account identity, authority/mode, placement, separate scores, authorized rewards, balance/game-core versions, timestamps, nonce and signature. `POST /api/matches/results` consumes it once into `consumed_match_receipts`, `match_history`, `progression_events` and the account update. Browser claims without a valid server signature fail closed.

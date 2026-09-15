@@ -1,6 +1,8 @@
+import { tuneAccountSkill, displacementResistance, SKILL_UNLOCK_LEVELS, type AccountBuild } from "@mma/balance";
 import {
   ARENA_BASELINE,
   BALANCE_VERSION,
+  BOT_BASELINE,
   HERO_BASE_ATTRIBUTES,
   MODE_RULES,
   PHYSICS_BASELINE,
@@ -28,6 +30,7 @@ import {
   distance,
   dot,
   normalize,
+  rayAabbIntersection,
   reflect,
   scale,
   sub,
@@ -35,14 +38,22 @@ import {
   type Vec2,
 } from "@mma/physics";
 
-export const GAME_CORE_VERSION = "game-core-0.1.0";
+export const GAME_CORE_VERSION = "game-core-0.3.0";
 export const FIXED_STEP_SECONDS = PHYSICS_BASELINE.fixedStepSeconds;
 
 export type MatchMode = "standard" | "final";
 export type MatchPhase = "round" | "results";
 export type DeathCause = "hp" | "hazard" | "environment" | "scripted";
 export type SkillIndex = 0 | 1 | 2 | 3;
-export type StatusId = "burning" | "slowed" | "airborne" | "wind-charged";
+export type StatusId = "burning" | "slowed" | "rooted" | "airborne" | "wind-charged";
+export type VerticalMotionState = "grounded" | "rising" | "airborne" | "falling" | "landing";
+
+export type VerticalState = {
+  state: VerticalMotionState;
+  height: number;
+  velocity: number;
+  landingRemaining: number;
+};
 
 export type InputCommand = {
   playerId: string;
@@ -71,6 +82,24 @@ export type PerformanceScore = {
   deaths: number;
 };
 
+export type BotTelemetryState = {
+  skillsUsed: number;
+  hits: number;
+  accuracy: number;
+  edgeDeaths: number;
+  dodgeAttempts: number;
+  edgeRecoveryAttempts: number;
+  edgeRecoveries: number;
+  timeStopped: number;
+  targetSwitches: number;
+  damageCaused: number;
+  damageReceived: number;
+  dashUses: number;
+  lastDecisionTick: number;
+  lastTargetId?: string;
+  recoveringFromEdge: boolean;
+};
+
 export type PlayerState = {
   id: string;
   name: string;
@@ -79,6 +108,7 @@ export type PlayerState = {
   isBot: boolean;
   position: Vec2;
   velocity: Vec2;
+  vertical: VerticalState;
   radius: number;
   hp: number;
   maxHp: number;
@@ -96,7 +126,9 @@ export type PlayerState = {
   teamScore: number;
   performance: PerformanceScore;
   lastDamager?: string;
+  build?: AccountBuild;
   lastImpulseContributor?: string;
+  impulseRemaining?: number;
   input: InputCommand;
   spawn: Vec2;
 };
@@ -108,6 +140,7 @@ export type ProjectileState = {
   element: ElementId;
   position: Vec2;
   velocity: Vec2;
+  height: number;
   radius: number;
   damage: number;
   knockback: number;
@@ -240,6 +273,7 @@ export type GameState = {
   environmental: EnvironmentalState;
   events: MatchEvent[];
   eventSequence: number;
+  botTelemetry: Record<string, BotTelemetryState>;
   result?: MatchResult;
 };
 
@@ -251,15 +285,15 @@ export type CreateMatchOptions = {
 };
 
 const SPAWN_POINTS: Vec2[] = [
-  { x: 250, y: 180 },
-  { x: 1350, y: 180 },
-  { x: 250, y: 720 },
-  { x: 1350, y: 720 },
-  { x: 800, y: 150 },
-  { x: 800, y: 750 },
+  { x: 430, y: 375 },
+  { x: 1770, y: 375 },
+  { x: 430, y: 865 },
+  { x: 1770, y: 865 },
+  { x: 1100, y: 220 },
+  { x: 1100, y: 1020 },
 ];
 
-const BOT_HERO_IDS: HeroId[] = ["water-tide", "earth-bastion", "air-gale", "fire-ember"];
+const BOT_HERO_IDS: HeroId[] = ["fire-ember", "water-tide", "earth-bastion", "air-gale"];
 const ELEMENT_COLORS: Record<string, number> = {
   fire: 0xff6b35,
   water: 0x35baf6,
@@ -316,6 +350,7 @@ function createPlayer(
     isBot,
     position: { ...spawn },
     velocity: { x: 0, y: 0 },
+    vertical: { state: "grounded", height: 0, velocity: 0, landingRemaining: 0 },
     radius: PHYSICS_BASELINE.playerRadius,
     hp: maxHp,
     maxHp,
@@ -343,18 +378,23 @@ export function createMatch(options: CreateMatchOptions = {}): GameState {
   const playerHeroId = options.playerHeroId ?? "fire-ember";
   const botCount = clamp(Math.floor(options.botCount ?? 3), 1, 5);
   const players: Record<string, PlayerState> = {};
-  players.player = createPlayer("player", "You", playerHeroId, false, SPAWN_POINTS[0] ?? { x: 250, y: 180 }, mode);
+  players.player = createPlayer("player", "You", playerHeroId, false, SPAWN_POINTS[0] ?? { x: 430, y: 375 }, mode);
+  const botHeroIds = BOT_HERO_IDS.filter((heroId) => heroId !== playerHeroId);
   for (let index = 0; index < botCount; index += 1) {
     const botId = "bot-" + (index + 1);
     players[botId] = createPlayer(
       botId,
       "Bot " + (index + 1),
-      BOT_HERO_IDS[index % BOT_HERO_IDS.length] ?? "water-tide",
+      botHeroIds[index % botHeroIds.length] ?? "water-tide",
       true,
-      SPAWN_POINTS[index + 1] ?? { x: 1350, y: 180 },
+      SPAWN_POINTS[index + 1] ?? { x: 1770, y: 375 },
       mode,
     );
   }
+  const botTelemetry = Object.fromEntries(Object.values(players).filter((player) => player.isBot).map((player) => [player.id, {
+    skillsUsed: 0, hits: 0, accuracy: 0, edgeDeaths: 0, dodgeAttempts: 0, edgeRecoveryAttempts: 0, edgeRecoveries: 0,
+    timeStopped: 0, targetSwitches: 0, damageCaused: 0, damageReceived: 0, dashUses: 0, lastDecisionTick: -1, recoveringFromEdge: false,
+  } satisfies BotTelemetryState]));
   return {
     version: GAME_CORE_VERSION,
     balanceVersion: BALANCE_VERSION,
@@ -380,6 +420,7 @@ export function createMatch(options: CreateMatchOptions = {}): GameState {
     },
     events: [],
     eventSequence: 0,
+    botTelemetry,
   };
 }
 
@@ -432,7 +473,7 @@ function getSkillForPlayer(player: PlayerState, index: SkillIndex): {
   if (!skillId) throw new Error("Missing skill index " + index + " for hero " + hero.id);
   const definition = skillsById[skillId];
   if (!definition) throw new Error("Unknown skill: " + skillId);
-  return { definition, tuning: getSkillTuning(skillId) };
+  return { definition, tuning: tuneAccountSkill(getSkillTuning(skillId), player.build) };
 }
 
 export function getHeroDefinition(heroId: HeroId): HeroDefinition {
@@ -453,6 +494,7 @@ export type PreviewSegment = {
   from: Vec2;
   to: Vec2;
   certainty: "certain" | "predicted" | "dynamic";
+  blocked?: boolean;
 };
 
 export type SkillPreview = {
@@ -464,7 +506,34 @@ export type SkillPreview = {
   range: number;
   radius: number;
   path: PreviewSegment[];
+  blocked: boolean;
+  predictedBounces: number;
 };
+
+function previewBounds(state: GameState): Aabb[] {
+  return [
+    ...state.arena.walls,
+    ...state.arena.objects.filter((object) => !object.destructible || object.hp > 0).map((object) => ({ min: object.min, max: object.max })),
+    ...state.walls.map((wall) => ({ min: wall.min, max: wall.max })),
+  ];
+}
+
+function nearestPreviewHit(state: GameState, origin: Vec2, direction: Vec2, range: number, radius: number) {
+  let nearest: ReturnType<typeof rayAabbIntersection> = null;
+  for (const bounds of previewBounds(state)) {
+    const hit = rayAabbIntersection(
+      origin,
+      direction,
+      range,
+      { x: bounds.min.x - radius, y: bounds.min.y - radius },
+      { x: bounds.max.x + radius, y: bounds.max.y + radius },
+    );
+    // A caster can stand against a wall. Do not make a zero-length hit hide
+    // the entire telegraph; the authoritative step resolves that contact.
+    if (hit && hit.distance > 0.5 && (!nearest || hit.distance < nearest.distance)) nearest = hit;
+  }
+  return nearest;
+}
 
 export function previewSkill(
   state: GameState,
@@ -478,8 +547,43 @@ export function previewSkill(
   const direction = normalize(aim);
   const origin = add(player.position, scale(direction, player.radius + 8));
   const range = tuning.range;
-  const impact = add(origin, scale(direction, range));
   const certainty = definition.preview.dynamicSegment ? "dynamic" : "certain";
+  const canPreviewPath = tuning.behavior === "projectile" || tuning.behavior === "arc";
+  const maximumBounces = canPreviewPath && definition.preview.predictableBounce ? Math.min(3, tuning.projectileBounces) : 0;
+  const path: PreviewSegment[] = [];
+  let currentOrigin = origin;
+  let currentDirection = direction;
+  let remaining = range;
+  let blocked = false;
+  let predictedBounces = 0;
+  let impact = add(origin, scale(direction, range));
+
+  for (let segmentIndex = 0; segmentIndex <= maximumBounces; segmentIndex += 1) {
+    const hit = canPreviewPath ? nearestPreviewHit(state, currentOrigin, currentDirection, remaining, tuning.radius) : null;
+    if (!hit) {
+      impact = add(currentOrigin, scale(currentDirection, remaining));
+      path.push({ from: currentOrigin, to: impact, certainty: segmentIndex > 0 ? "predicted" : certainty });
+      break;
+    }
+    const canBounce = predictedBounces < maximumBounces && (Math.abs(hit.normal.x) > 0 || Math.abs(hit.normal.y) > 0);
+    const hitPoint = hit.point;
+    path.push({
+      from: currentOrigin,
+      to: hitPoint,
+      certainty: segmentIndex > 0 ? "predicted" : certainty,
+      ...(canBounce ? {} : { blocked: true }),
+    });
+    impact = hitPoint;
+    remaining -= hit.distance;
+    if (!canBounce || remaining <= 1) {
+      blocked = !canBounce;
+      break;
+    }
+    predictedBounces += 1;
+    currentDirection = normalize(reflect(currentDirection, hit.normal));
+    currentOrigin = add(hitPoint, scale(hit.normal, 2));
+  }
+
   return {
     skillId: definition.id,
     geometry: definition.geometry,
@@ -488,7 +592,9 @@ export function previewSkill(
     impact,
     range,
     radius: tuning.effectRadius,
-    path: [{ from: origin, to: impact, certainty }],
+    path,
+    blocked,
+    predictedBounces,
   };
 }
 
@@ -513,6 +619,15 @@ function applyStatus(
   } else {
     target.statuses.push({ id, remaining: duration, strength, sourceId, tickAccumulator: 0 });
   }
+  if (id === "airborne") {
+    target.vertical.state = "rising";
+    target.vertical.height = Math.max(target.vertical.height, 8);
+    target.vertical.velocity = Math.max(
+      target.vertical.velocity,
+      PHYSICS_BASELINE.verticalLaunchVelocity * Math.max(0.55, strength),
+    );
+    target.vertical.landingRemaining = 0;
+  }
   addEvent(
     state,
     "STATUS_APPLY",
@@ -532,9 +647,10 @@ function applyImpulse(
 ): void {
   if (!target.alive) return;
   const hero = heroesById[target.heroId];
-  const reduction = hero?.element === "earth" && !status(target, "airborne") ? 0.68 : 1;
-  const impulse = scale(normalize(direction), amount * PHYSICS_BASELINE.globalKnockbackScale * reduction);
+  const reduction = hero?.element === "earth" && isTargetInGroundState(target) ? 0.68 : 1;
+  const impulse = scale(normalize(direction), amount * PHYSICS_BASELINE.globalKnockbackScale * reduction * displacementResistance(target.build));
   target.velocity = clampMagnitude(add(target.velocity, impulse), 1250);
+  target.impulseRemaining = Math.max(target.impulseRemaining ?? 0, .65);
   if (amount > 0) target.lastImpulseContributor = sourceId;
   addEvent(
     state,
@@ -559,7 +675,17 @@ function applyDamage(
   target.hp = Math.max(0, target.hp - actual);
   target.lastDamager = sourceId;
   const source = getPlayer(state, sourceId);
-  if (source) source.performance.damage += actual;
+  if (source) {
+    source.performance.damage += actual;
+    const sourceTelemetry = telemetryFor(state, source);
+    if (sourceTelemetry) {
+      sourceTelemetry.hits += 1;
+      sourceTelemetry.damageCaused += actual;
+      sourceTelemetry.accuracy = sourceTelemetry.skillsUsed > 0 ? sourceTelemetry.hits / sourceTelemetry.skillsUsed : 0;
+    }
+  }
+  const targetTelemetry = telemetryFor(state, target);
+  if (targetTelemetry) targetTelemetry.damageReceived += actual;
   addEvent(
     state,
     "DAMAGE",
@@ -587,6 +713,7 @@ function applyAreaEffect(
   );
   for (const target of alivePlayers(state)) {
     if (target.id === source.id) continue;
+    if (tuning.status === "airborne" && !canGroundOnlyHit(target)) continue;
     const delta = sub(target.position, position);
     const distanceToCenter = Math.max(1, distance(target.position, position));
     if (distanceToCenter > tuning.effectRadius + target.radius) continue;
@@ -621,6 +748,7 @@ function makeRectAt(position: Vec2, direction: Vec2, width: number, depth: numbe
 }
 
 function castSkill(state: GameState, player: PlayerState, index: SkillIndex): void {
+  if (player.build && player.build.accountLevel < SKILL_UNLOCK_LEVELS[index]) return;
   const { definition, tuning } = getSkillForPlayer(player, index);
   const skillId = definition.id;
   if ((player.cooldowns[skillId] ?? 0) > 0 || player.mana < tuning.manaCost) return;
@@ -634,6 +762,11 @@ function castSkill(state: GameState, player: PlayerState, index: SkillIndex): vo
   );
   player.mana -= tuning.manaCost;
   player.cooldowns[skillId] = tuning.cooldown;
+  const telemetry = telemetryFor(state, player);
+  if (telemetry) {
+    telemetry.skillsUsed += 1;
+    telemetry.accuracy = telemetry.hits / telemetry.skillsUsed;
+  }
   if (tuning.behavior === "projectile" || tuning.behavior === "arc") {
     const projectile: ProjectileState = {
       id: "projectile-" + state.tick + "-" + player.id + "-" + index,
@@ -642,6 +775,7 @@ function castSkill(state: GameState, player: PlayerState, index: SkillIndex): vo
       element: definition.element,
       position: origin,
       velocity: scale(direction, tuning.projectileSpeed),
+      height: tuning.behavior === "arc" ? 1 : 20,
       radius: tuning.radius,
       damage: tuning.damage,
       knockback: tuning.knockback,
@@ -723,6 +857,8 @@ function useDash(state: GameState, player: PlayerState): void {
   player.velocity = scale(direction, 250);
   player.tacticalCooldown = PHYSICS_BASELINE.dashCooldown;
   player.performance.utility += 1;
+  const telemetry = telemetryFor(state, player);
+  if (telemetry) telemetry.dashUses += 1;
   addEvent(state, "INTERACTION", { actorId: player.id, position: player.position, vector: direction }, ["TACTICAL", "DASH"]);
 }
 
@@ -754,24 +890,86 @@ function nearestTarget(state: GameState, player: PlayerState): PlayerState | und
     .sort((a, b) => distance(a.position, player.position) - distance(b.position, player.position))[0];
 }
 
+function telemetryFor(state: GameState, player: PlayerState): BotTelemetryState | undefined {
+  return player.isBot ? state.botTelemetry[player.id] : undefined;
+}
+
+function botTarget(state: GameState, player: PlayerState): PlayerState | undefined {
+  const candidates = alivePlayers(state)
+    .filter((candidate) => candidate.id !== player.id && distance(candidate.position, player.position) <= BOT_BASELINE.visionRange)
+    .map((candidate) => ({
+      candidate,
+      score: distance(candidate.position, player.position) + (candidate.hp / candidate.maxHp) * 120 + (candidate.id === player.lastDamager ? -140 : 0),
+    }))
+    .sort((a, b) => a.score - b.score || a.candidate.id.localeCompare(b.candidate.id));
+  return candidates[0]?.candidate ?? nearestTarget(state, player);
+}
+
+function incomingThreat(state: GameState, player: PlayerState): Vec2 | null {
+  const projectile = state.projectiles
+    .filter((entry) => entry.ownerId !== player.id && distance(entry.position, player.position) <= BOT_BASELINE.dodgeRadius)
+    .find((entry) => dot(normalize(entry.velocity), normalize(sub(player.position, entry.position))) > .62);
+  if (projectile) {
+    const direction = normalize(projectile.velocity);
+    return ((player.id.length + state.tick) % 2 === 0) ? { x: -direction.y, y: direction.x } : { x: direction.y, y: -direction.x };
+  }
+  const field = state.fields.find((entry) => entry.ownerId !== player.id && distance(entry.position, player.position) <= entry.radius + BOT_BASELINE.fieldAvoidanceBuffer);
+  return field ? normalize(sub(player.position, field.position)) : null;
+}
+
 function botCommand(state: GameState, player: PlayerState): InputCommand {
-  const target = nearestTarget(state, player);
+  const target = botTarget(state, player);
   if (!target) return emptyInput(player.id);
   const delta = sub(target.position, player.position);
   const targetDistance = distance(target.position, player.position);
+  const targetVelocity = scale(target.velocity, BOT_BASELINE.aimLeadSeconds);
+  const predictedDelta = sub(add(target.position, targetVelocity), player.position);
   const moveDirection = normalize(delta);
+  const centerDirection = normalize(sub(state.arena.center, player.position));
   const edgeX = Math.min(player.position.x - state.arena.safeMin.x, state.arena.safeMax.x - player.position.x);
   const edgeY = Math.min(player.position.y - state.arena.safeMin.y, state.arena.safeMax.y - player.position.y);
-  const nearEdge = Math.min(edgeX, edgeY) < 95;
-  const skillIndex = (Math.floor(state.time * 2) + player.id.length) % 4 as SkillIndex;
-  const skill = getSkillForPlayer(player, skillIndex);
-  const canCast = (player.cooldowns[skill.definition.id] ?? 0) <= 0 && player.mana >= skill.tuning.manaCost;
+  const nearEdge = Math.min(edgeX, edgeY) < BOT_BASELINE.edgeBuffer;
+  const hurt = player.hp / player.maxHp < BOT_BASELINE.retreatHpRatio;
+  const hero = heroesById[player.heroId];
+  const decisionTick = Math.floor(state.time / BOT_BASELINE.decisionIntervalSeconds);
+  const telemetry = telemetryFor(state, player);
+  const newDecision = telemetry ? telemetry.lastDecisionTick !== decisionTick : false;
+  if (telemetry && newDecision) {
+    telemetry.lastDecisionTick = decisionTick;
+    if (telemetry.lastTargetId && telemetry.lastTargetId !== target.id) telemetry.targetSwitches += 1;
+    telemetry.lastTargetId = target.id;
+    if (nearEdge && !telemetry.recoveringFromEdge) telemetry.edgeRecoveryAttempts += 1;
+    if (!nearEdge && telemetry.recoveringFromEdge) telemetry.edgeRecoveries += 1;
+    telemetry.recoveringFromEdge = nearEdge;
+  }
+  const preferred: SkillIndex[] = hero?.element === "fire"
+    ? (targetDistance < 300 ? [1, 2, 0, 3] : [3, 0, 1, 2])
+    : hero?.element === "water"
+      ? (targetDistance < 270 ? [1, 3, 2, 0] : [0, 2, 1, 3])
+      : hero?.element === "earth"
+        ? (targetDistance < 280 ? [2, 1, 0, 3] : [3, 0, 1, 2])
+        : (nearEdge ? [3, 1, 2, 0] : [2, 0, 1, 3]);
+  const skillIndex = preferred.find((index) => {
+    const skill = getSkillForPlayer(player, index);
+    return (player.cooldowns[skill.definition.id] ?? 0) <= 0 && player.mana >= skill.tuning.manaCost && targetDistance <= skill.tuning.range + BOT_BASELINE.castDistanceSlack;
+  });
+  const threatDirection = incomingThreat(state, player);
+  if (telemetry && newDecision && threatDirection) telemetry.dodgeAttempts += 1;
+  const strafe = ((decisionTick + player.id.length) % 2 === 0) ? { x: -moveDirection.y, y: moveDirection.x } : { x: moveDirection.y, y: -moveDirection.x };
+  let move = targetDistance > BOT_BASELINE.engageDistance ? moveDirection : strafe;
+  if (hero?.element === "fire" && !hurt && targetDistance > 220) move = moveDirection;
+  if (hero?.element === "earth" && targetDistance < 190) move = scale(moveDirection, -.7);
+  if (hurt) move = normalize(add(scale(moveDirection, -1), centerDirection));
+  if (threatDirection) move = normalize(add(scale(threatDirection, 1.4), centerDirection));
+  if (nearEdge) move = centerDirection;
+  const shouldCast = skillIndex !== undefined && newDecision && (decisionTick + player.id.length) % 2 === 0;
+  const dashForThreat = Boolean(threatDirection && player.tacticalCooldown <= 0 && (hero?.element === "air" || nearEdge));
   return {
     playerId: player.id,
-    move: nearEdge ? scale(moveDirection, -1) : targetDistance > 280 ? moveDirection : { x: -moveDirection.y, y: moveDirection.x },
-    aim: delta,
-    ...(canCast && (targetDistance < skill.tuning.range + 150) ? { releaseSkill: skillIndex } : {}),
-    ...(nearEdge && player.tacticalCooldown <= 0 ? { dash: true } : {}),
+    move,
+    aim: nearEdge ? centerDirection : predictedDelta,
+    ...(shouldCast && skillIndex !== undefined ? { releaseSkill: skillIndex } : {}),
+    ...((nearEdge && player.tacticalCooldown <= 0) || dashForThreat ? { dash: true } : {}),
   };
 }
 
@@ -782,6 +980,8 @@ function processInputs(state: GameState, commands: InputCommand[], dt: number): 
     const raw = byPlayer.get(player.id) ?? emptyInput(player.id);
     const command = sanitizeInput(raw, player.id);
     player.input = command;
+    const telemetry = telemetryFor(state, player);
+    if (telemetry && Math.hypot(command.move.x, command.move.y) < .08) telemetry.timeStopped += dt;
     if (!player.alive) continue;
     if (command.releaseSkill !== undefined) {
       addEvent(state, "CAST_START", { actorId: player.id, value: command.releaseSkill }, ["INPUT"]);
@@ -793,7 +993,7 @@ function processInputs(state: GameState, commands: InputCommand[], dt: number): 
     const slowed = status(player, "slowed");
     const speed = PHYSICS_BASELINE.moveSpeed * (slowed ? 1 - slowed.strength : 1);
     const desired = scale(normalize(command.move), speed);
-    const acceleration = Math.min(1, PHYSICS_BASELINE.acceleration * dt / speed);
+    const acceleration = Math.min(1, PHYSICS_BASELINE.acceleration * dt / speed * ((player.impulseRemaining ?? 0) > 0 ? .08 : 1));
     player.velocity = add(player.velocity, scale(sub(desired, player.velocity), acceleration));
     player.mana = Math.min(player.maxMana, player.mana + PHYSICS_BASELINE.manaRegenPerSecond * dt);
     player.tacticalCooldown = Math.max(0, player.tacticalCooldown - dt);
@@ -831,18 +1031,24 @@ function updatePlayers(state: GameState, dt: number): void {
           player.mana = player.maxMana;
           player.position = { ...player.spawn };
           player.velocity = { x: 0, y: 0 };
+          player.vertical = { state: "grounded", height: 0, velocity: 0, landingRemaining: 0 };
           player.statuses = [];
+          player.impulseRemaining = 0;
           addEvent(state, "RESPAWN", { actorId: player.id, position: player.position }, ["RESPAWN"]);
         }
       }
       continue;
     }
     const slowed = status(player, "slowed");
-    const friction = slowed ? 0.92 : Math.pow(PHYSICS_BASELINE.friction, dt * 60);
+    const displaced = (player.impulseRemaining ?? 0) > 0;
+    const friction = Math.pow(displaced ? .985 : slowed ? .92 : PHYSICS_BASELINE.friction, dt * 60);
+    player.impulseRemaining = Math.max(0, (player.impulseRemaining ?? 0) - dt);
     player.position = add(player.position, scale(player.velocity, dt));
     player.velocity = scale(player.velocity, friction);
     for (const wall of state.arena.walls) resolveAgainstAabb(player, wall);
-    for (const object of state.arena.objects) resolveAgainstAabb(player, object);
+    for (const object of state.arena.objects) {
+      if (object.hp > 0) resolveAgainstAabb(player, object);
+    }
     for (const wall of state.walls) resolveAgainstAabb(player, { min: wall.min, max: wall.max });
     const outside =
       player.position.x < state.arena.safeMin.x ||
@@ -864,6 +1070,33 @@ function updatePlayers(state: GameState, dt: number): void {
       if (distanceOutside > PHYSICS_BASELINE.hazardKoDistance && player.alive) {
         resolveDeath(state, player, "hazard");
       }
+    }
+  }
+}
+
+function updateVertical(state: GameState, dt: number): void {
+  for (const player of Object.values(state.players)) {
+    if (!player.alive) continue;
+    const airborne = status(player, "airborne");
+    if (airborne && player.vertical.state === "grounded") {
+      player.vertical.state = "rising";
+      player.vertical.height = 8;
+      player.vertical.velocity = PHYSICS_BASELINE.verticalLaunchVelocity * Math.max(0.55, airborne.strength);
+    }
+    if (player.vertical.state === "grounded") continue;
+    if (player.vertical.landingRemaining > 0) {
+      player.vertical.landingRemaining = Math.max(0, player.vertical.landingRemaining - dt);
+      if (player.vertical.landingRemaining === 0) player.vertical.state = "grounded";
+      continue;
+    }
+    player.vertical.velocity -= PHYSICS_BASELINE.verticalGravity * dt;
+    player.vertical.height = Math.max(0, player.vertical.height + player.vertical.velocity * dt);
+    if (player.vertical.height === 0) {
+      player.vertical.velocity = 0;
+      player.vertical.state = "landing";
+      player.vertical.landingRemaining = PHYSICS_BASELINE.verticalLandingSeconds;
+    } else {
+      player.vertical.state = player.vertical.velocity >= 0 ? "rising" : "falling";
     }
   }
 }
@@ -893,6 +1126,25 @@ function projectileWallNormal(projectile: ProjectileState, wall: Aabb): Vec2 {
   return distances[0]?.normal ?? { x: -1, y: 0 };
 }
 
+function damageArenaObject(state: GameState, projectile: ProjectileState, object: ArenaObject): void {
+  if (!object.destructible || object.hp <= 0) return;
+  object.hp = Math.max(0, object.hp - projectile.damage);
+  addEvent(
+    state,
+    "DAMAGE",
+    { actorId: projectile.ownerId, targetId: object.id, sourceDefinitionId: projectile.skillId, value: projectile.damage, position: projectile.position },
+    [projectile.element.toUpperCase(), "OBJECT", "DESTRUCTIBLE"],
+  );
+  if (object.hp === 0) {
+    addEvent(
+      state,
+      "INTERACTION",
+      { actorId: projectile.ownerId, targetId: object.id, sourceDefinitionId: projectile.skillId, position: projectile.position, detail: "object destroyed" },
+      ["OBJECT", "DESTROYED"],
+    );
+  }
+}
+
 function updateProjectiles(state: GameState, dt: number): void {
   const next: ProjectileState[] = [];
   for (const projectile of state.projectiles) {
@@ -904,6 +1156,13 @@ function updateProjectiles(state: GameState, dt: number): void {
     projectile.position = add(projectile.position, scale(projectile.velocity, dt));
     projectile.remaining -= dt;
     projectile.distanceTravelled += distance(previous, projectile.position);
+    const projectileGeometry = skillsById[projectile.skillId]?.geometry.kind;
+    if (projectileGeometry === "arc") {
+      const progress = clamp(projectile.distanceTravelled / Math.max(1, projectile.maxRange), 0, 1);
+      projectile.height = Math.sin(progress * Math.PI) * 132;
+    } else {
+      projectile.height = 20;
+    }
     let consumed = false;
     const boundary = {
       min: { x: 0, y: 0 },
@@ -928,9 +1187,15 @@ function updateProjectiles(state: GameState, dt: number): void {
         consumed = true;
       }
     }
-    const staticBounds = [...state.arena.walls, ...state.arena.objects.map((object) => ({ min: object.min, max: object.max })), ...state.walls.map((wall) => ({ min: wall.min, max: wall.max }))];
-    for (const bounds of staticBounds) {
+    const staticBounds: Array<{ bounds: Aabb; object?: ArenaObject }> = [
+      ...state.arena.walls.map((bounds) => ({ bounds })),
+      ...state.arena.objects.filter((object) => !object.destructible || object.hp > 0).map((object) => ({ bounds: { min: object.min, max: object.max }, object })),
+      ...state.walls.map((wall) => ({ bounds: { min: wall.min, max: wall.max } })),
+    ];
+    for (const staticEntry of staticBounds) {
+      const bounds = staticEntry.bounds;
       if (consumed || !circleOverlapsAabb(projectile.position, projectile.radius, bounds.min, bounds.max)) continue;
+      if (staticEntry.object) damageArenaObject(state, projectile, staticEntry.object);
       if (projectile.bouncesRemaining > 0) {
         const normal = projectileWallNormal(projectile, bounds);
         projectile.velocity = reflect(projectile.velocity, normal, 0.9);
@@ -1021,7 +1286,10 @@ function calculatePerformanceScore(player: PlayerState): number {
 function resolveDeath(state: GameState, target: PlayerState, cause: DeathCause): void {
   if (!target.alive) return;
   target.alive = false;
+  target.vertical = { state: "grounded", height: 0, velocity: 0, landingRemaining: 0 };
   target.performance.deaths += 1;
+  const targetTelemetry = telemetryFor(state, target);
+  if (targetTelemetry && cause === "hazard") targetTelemetry.edgeDeaths += 1;
   const lastDamager = target.lastDamager ? getPlayer(state, target.lastDamager) : undefined;
   const killer = cause === "hazard" && target.lastImpulseContributor
     ? getPlayer(state, target.lastImpulseContributor) ?? lastDamager
@@ -1073,17 +1341,26 @@ export function resolveDeathForTesting(
   return state;
 }
 
-function finishMatch(state: GameState): void {
-  if (state.phase === "results") return;
-  const rankings = livingPlayers(state)
-    .concat(Object.values(state.players).filter((player) => player.eliminated))
-    .sort((a, b) => b.matchScore - a.matchScore || calculatePerformanceScore(b) - calculatePerformanceScore(a))
+export function getMatchRankings(state: GameState): NonNullable<GameState["result"]>["rankings"] {
+  return Object.values(state.players)
+    .sort((a, b) => {
+      // Final survival takes precedence over score, including a pending respawn.
+      const remaining = (player: PlayerState) => !player.eliminated && (player.alive || player.respawnTimer > 0);
+      const survival = state.mode === "final" ? Number(remaining(b)) - Number(remaining(a)) : 0;
+      // Stable identity only orders exact score ties; performance never decides placement.
+      return survival || b.matchScore - a.matchScore || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    })
     .map((player, index) => ({
       playerId: player.id,
       placement: index + 1,
       matchScore: player.matchScore,
       performanceScore: calculatePerformanceScore(player),
     }));
+}
+
+function finishMatch(state: GameState): void {
+  if (state.phase === "results") return;
+  const rankings = getMatchRankings(state);
   state.phase = "results";
   state.result = {
     ...(rankings[0] ? { winnerId: rankings[0].playerId } : {}),
@@ -1110,6 +1387,7 @@ export function stepMatch(
   processInputs(state, commands, safeDt);
   updateEnvironmental(state, safeDt);
   updateStatuses(state, safeDt);
+  updateVertical(state, safeDt);
   updateFields(state, safeDt);
   updateProjectiles(state, safeDt);
   updatePlayers(state, safeDt);
@@ -1132,8 +1410,17 @@ export function startFinalRound(state: GameState): GameState {
     player.mana = player.maxMana;
     player.position = { ...player.spawn };
     player.velocity = { x: 0, y: 0 };
+    player.vertical = { state: "grounded", height: 0, velocity: 0, landingRemaining: 0 };
+    player.statuses = [];
+          player.impulseRemaining = 0;
+    player.cooldowns = {};
     player.matchScore = 0;
     player.performance = { damage: 0, assists: 0, kos: 0, survivalSeconds: 0, utility: 0, deaths: 0 };
+    if (player.isBot) state.botTelemetry[player.id] = {
+      skillsUsed: 0, hits: 0, accuracy: 0, edgeDeaths: 0, dodgeAttempts: 0, edgeRecoveryAttempts: 0,
+      edgeRecoveries: 0, timeStopped: 0, targetSwitches: 0, damageCaused: 0, damageReceived: 0,
+      dashUses: 0, lastDecisionTick: -1, recoveringFromEdge: false,
+    };
   }
   addEvent(state, "ROUND_END", { detail: "final round started" }, ["FINAL", "RESPAWN"]);
   return state;
@@ -1160,7 +1447,7 @@ export function getSkillBehaviorLabel(behavior: SkillBehavior): string {
 }
 
 export function isTargetInGroundState(player: PlayerState): boolean {
-  return !status(player, "airborne");
+  return player.vertical.state === "grounded";
 }
 
 export function canGroundOnlyHit(player: PlayerState): boolean {

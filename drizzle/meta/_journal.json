@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789455975732,
+      "tag": "0002_client_journey",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-09-15T07:03:45.240Z",
+  "generator": "tools/asset-pipeline/generate-heroes.mjs",
+  "blenderAvailable": false,
+  "assets": [
+    {
+      "hero": "fire-ember",
+      "glbBytes": 451948,
+      "textureBytes": 2200
+    },
+    {
+      "hero": "water-tide",
+      "glbBytes": 488728,
+      "textureBytes": 2297
+    },
+    {
+      "hero": "earth-bastion",
+      "glbBytes": 504712,
+      "textureBytes": 2164
+    },
+    {
+      "hero": "air-gale",
+      "glbBytes": 555804,
+      "textureBytes": 2163
+    }
+  ]
+}

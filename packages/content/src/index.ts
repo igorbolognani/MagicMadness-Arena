@@ -16,7 +16,7 @@ import {
   talentNodes,
 } from "./meta";
 
-export const CONTENT_VERSION = "content-0.1.0";
+export const CONTENT_VERSION = "content-0.1.1";
 
 export const ELEMENTS = [
   "fire",
@@ -85,6 +85,7 @@ export const HeroDefinitionSchema = z.object({
   skillIds: z.array(z.string()).length(4),
   color: z.string().regex(/^#[0-9a-f]{6}$/i),
   summary: z.string().min(1),
+  visualPackageId: z.string().min(1),
 });
 export type HeroDefinition = z.infer<typeof HeroDefinitionSchema>;
 
@@ -147,6 +148,7 @@ export const heroDefinitions: HeroDefinition[] = [
     skillIds: ["fire-ember-bolt", "fire-flare-burst", "fire-scorch-trail", "fire-solar-orb"],
     color: "#ff6b35",
     summary: "Explosions, pressure and burning lanes. Teaches direct damage plus knockout timing.",
+    visualPackageId: "hero-ember-chibi-glb-v3",
   },
   {
     id: "water-tide",
@@ -158,6 +160,7 @@ export const heroDefinitions: HeroDefinition[] = [
     skillIds: ["water-pressure-jet", "water-undertow", "water-tide-field", "water-wave-wall"],
     color: "#35baf6",
     summary: "Push, pull and slow. Teaches space manipulation and team utility.",
+    visualPackageId: "hero-tide-chibi-glb-v3",
   },
   {
     id: "earth-bastion",
@@ -169,6 +172,7 @@ export const heroDefinitions: HeroDefinition[] = [
     skillIds: ["earth-stone-shard", "earth-bulwark", "earth-quake", "earth-boulder"],
     color: "#c99a5b",
     summary: "Walls, mass and stability. Teaches cover, collisions and controlled pressure.",
+    visualPackageId: "hero-bastion-chibi-glb-v3",
   },
   {
     id: "air-gale",
@@ -180,6 +184,7 @@ export const heroDefinitions: HeroDefinition[] = [
     skillIds: ["air-gust", "air-vortex", "air-wind-shear", "air-updraft"],
     color: "#b18cff",
     summary: "Mobility, redirection and recovery. Teaches trajectory control and edge saves.",
+    visualPackageId: "hero-gale-chibi-glb-v3",
   },
 ];
 

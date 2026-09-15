@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const BALANCE_VERSION = "balance-baseline-0.1.0";
+export const BALANCE_VERSION = "balance-baseline-0.3.0";
 export const PHYSICS_BASELINE = {
   fixedStepSeconds: 1 / 60,
   moveSpeed: 245,
@@ -10,7 +10,7 @@ export const PHYSICS_BASELINE = {
   maxHp: 100,
   maxMana: 100,
   manaRegenPerSecond: 7,
-  globalKnockbackScale: 1,
+  globalKnockbackScale: 3.4,
   hazardDamagePerSecond: 24,
   hazardKoDistance: 80,
   dashDistance: 170,
@@ -19,6 +19,9 @@ export const PHYSICS_BASELINE = {
   potionCooldown: 8,
   healthPotionAmount: 32,
   manaPotionAmount: 38,
+  verticalLaunchVelocity: 420,
+  verticalGravity: 1050,
+  verticalLandingSeconds: 0.1,
 } as const;
 
 export type SkillBehavior = "projectile" | "radial" | "field" | "wall" | "pull" | "arc" | "dash";
@@ -144,24 +147,36 @@ export const HERO_BASE_ATTRIBUTES: Record<string, { force: number; resilience: n
 };
 
 export const ARENA_BASELINE = {
-  width: 1600,
-  height: 900,
-  margin: 44,
+  width: 2200,
+  height: 1240,
+  margin: 58,
   hazardKoDistance: PHYSICS_BASELINE.hazardKoDistance,
   roundDurationSeconds: 120,
   windWarningSeconds: 2.5,
   windActiveSeconds: 6,
   walls: [
-    { min: { x: 638, y: 354 }, max: { x: 962, y: 402 } },
-    { min: { x: 638, y: 498 }, max: { x: 962, y: 546 } },
-    { min: { x: 314, y: 406 }, max: { x: 390, y: 494 } },
-    { min: { x: 1210, y: 406 }, max: { x: 1286, y: 494 } },
+    { min: { x: 852, y: 478 }, max: { x: 1348, y: 526 } },
+    { min: { x: 852, y: 714 }, max: { x: 1348, y: 762 } },
+    { min: { x: 508, y: 550 }, max: { x: 584, y: 690 } },
+    { min: { x: 1616, y: 550 }, max: { x: 1692, y: 690 } },
+    { min: { x: 740, y: 246 }, max: { x: 790, y: 390 } },
+    { min: { x: 1410, y: 850 }, max: { x: 1460, y: 994 } },
   ],
   objects: [
-    { id: "crate-west", kind: "crate", min: { x: 486, y: 230 }, max: { x: 550, y: 294 }, destructible: true, hp: 70, color: "#b9784d" },
-    { id: "crate-east", kind: "crate", min: { x: 1050, y: 606 }, max: { x: 1114, y: 670 }, destructible: true, hp: 70, color: "#b9784d" },
-    { id: "house-north", kind: "house", min: { x: 1040, y: 238 }, max: { x: 1175, y: 318 }, destructible: false, hp: 999, color: "#34466d" },
-    { id: "house-south", kind: "house", min: { x: 425, y: 582 }, max: { x: 560, y: 662 }, destructible: false, hp: 999, color: "#34466d" },
+    { id: "crate-fire", kind: "crate", min: { x: 620, y: 384 }, max: { x: 692, y: 456 }, destructible: true, hp: 70, color: "#b9784d" },
+    { id: "crate-water", kind: "crate", min: { x: 1512, y: 784 }, max: { x: 1584, y: 856 }, destructible: true, hp: 70, color: "#b9784d" },
+    { id: "crate-earth", kind: "crate", min: { x: 620, y: 784 }, max: { x: 692, y: 856 }, destructible: true, hp: 70, color: "#b9784d" },
+    { id: "crate-air", kind: "crate", min: { x: 1512, y: 384 }, max: { x: 1584, y: 456 }, destructible: true, hp: 70, color: "#b9784d" },
+    { id: "house-fire-1", kind: "house", min: { x: 245, y: 180 }, max: { x: 410, y: 290 }, destructible: false, hp: 999, color: "#8a3827" },
+    { id: "house-fire-2", kind: "house", min: { x: 450, y: 118 }, max: { x: 610, y: 220 }, destructible: false, hp: 999, color: "#8a3827" },
+    { id: "house-water-1", kind: "house", min: { x: 1790, y: 180 }, max: { x: 1955, y: 290 }, destructible: false, hp: 999, color: "#245d83" },
+    { id: "house-water-2", kind: "house", min: { x: 1590, y: 118 }, max: { x: 1750, y: 220 }, destructible: false, hp: 999, color: "#245d83" },
+    { id: "house-earth-1", kind: "house", min: { x: 245, y: 950 }, max: { x: 410, y: 1060 }, destructible: false, hp: 999, color: "#6e5839" },
+    { id: "house-earth-2", kind: "house", min: { x: 450, y: 1020 }, max: { x: 610, y: 1122 }, destructible: false, hp: 999, color: "#6e5839" },
+    { id: "house-air-1", kind: "house", min: { x: 1790, y: 950 }, max: { x: 1955, y: 1060 }, destructible: false, hp: 999, color: "#62508f" },
+    { id: "house-air-2", kind: "house", min: { x: 1590, y: 1020 }, max: { x: 1750, y: 1122 }, destructible: false, hp: 999, color: "#62508f" },
+    { id: "house-meridian-west", kind: "house", min: { x: 150, y: 522 }, max: { x: 300, y: 718 }, destructible: false, hp: 999, color: "#34466d" },
+    { id: "house-meridian-east", kind: "house", min: { x: 1900, y: 522 }, max: { x: 2050, y: 718 }, destructible: false, hp: 999, color: "#34466d" },
   ],
 } as const;
 
@@ -175,6 +190,20 @@ export const SCORE_BASELINE = {
   assistPerformanceScore: 30,
   koPerformanceScore: 80,
   utilityPerformanceScore: 4,
+} as const;
+
+// Training-bot baseline: deterministic utility decisions with bounded
+// reaction/aim lead so a new player can read the threat before it resolves.
+export const BOT_BASELINE = {
+  decisionIntervalSeconds: 0.24,
+  aimLeadSeconds: 0.18,
+  engageDistance: 520,
+  retreatHpRatio: 0.28,
+  edgeBuffer: 120,
+  castDistanceSlack: 72,
+  visionRange: 920,
+  dodgeRadius: 260,
+  fieldAvoidanceBuffer: 86,
 } as const;
 
 export const META_BALANCE_VERSION = "meta-baseline-0.1.0";
@@ -228,6 +257,9 @@ export function validateBalance(): void {
     potionCooldown: z.number().positive(),
     healthPotionAmount: z.number().positive(),
     manaPotionAmount: z.number().positive(),
+    verticalLaunchVelocity: z.number().positive(),
+    verticalGravity: z.number().positive(),
+    verticalLandingSeconds: z.number().positive(),
   }).parse(PHYSICS_BASELINE);
   z.object({
     width: z.number().positive(),
@@ -258,4 +290,17 @@ export function validateBalance(): void {
     koPerformanceScore: z.number().positive(),
     utilityPerformanceScore: z.number().positive(),
   }).parse(SCORE_BASELINE);
+  z.object({
+    decisionIntervalSeconds: z.number().positive(),
+    aimLeadSeconds: z.number().nonnegative(),
+    engageDistance: z.number().positive(),
+    retreatHpRatio: z.number().positive().max(0.999999),
+    edgeBuffer: z.number().positive(),
+    castDistanceSlack: z.number().nonnegative(),
+    visionRange: z.number().positive(),
+    dodgeRadius: z.number().positive(),
+    fieldAvoidanceBuffer: z.number().nonnegative(),
+  }).parse(BOT_BASELINE);
 }
+
+export * from "./build";

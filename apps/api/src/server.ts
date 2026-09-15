@@ -28,8 +28,8 @@ api.get("/v1/content/progression", async () => ({
 api.get("/v1/account/dev", async () => ({
   id: "dev-account-001",
   displayName: "Arena Tester",
-  accountLevel: 12,
-  progressionBand: "10-20",
+  accountLevel: 1,
+  progressionBand: "1-10",
 }));
 
 api.listen({ port: Number(process.env.PORT ?? 8788), host: "0.0.0.0" }).catch((error) => {

@@ -1,23 +1,21 @@
-# ADR-003 — Renderer fallback for hosted game clients
+# ADR-003 — Historical renderer fallback for hosted game clients
 
 ## Status
 
-Accepted — 2026-08-29
+Superseded by ADR-004 and ADR-006 — 2026-08-30
 
 ## Context
 
-The browser game client must remain inspectable and playable on mobile and
-hosted surfaces that may not expose a usable WebGL context. PixiJS is the
-preferred renderer for the authored arena presentation, but a renderer failure
-must not unmount the match route or make the deterministic local simulation
-unverifiable.
+The first session considered a PixiJS/Canvas 2D fallback for hosted surfaces
+without WebGL. The later 3D visibility decision changed the match renderer
+contract: a 2D canvas cannot stand in for the requested 3D presentation.
 
 ## Decision
 
-Keep PixiJS as the first renderer and catch initialization/render failures at
-the `PixiArena` boundary. When WebGL is unavailable, draw the same arena state,
-preview path, projectiles, fields, hazards and hero readouts with the native
-Canvas 2D context on the same canvas element.
+Do not use this fallback for the current client. Three.js/WebGL is the live
+renderer and its initialization failure is surfaced in the match/hero UI as an
+explicit capability state. The deterministic simulation stays mounted and
+inspectable, but the client does not silently downgrade the visual contract.
 
 The fallback is presentation-only. It consumes `GameState`, does not own input,
 physics, balance, score or random state, and does not change the authoritative
@@ -25,8 +23,7 @@ server boundary.
 
 ## Consequences
 
-- Headless/mobile browsers can still verify the real match route and controls.
-- PixiJS remains available for surfaces with WebGL and can receive visual
-  upgrades without changing the fallback contract.
-- Renderer failures are observable through the game-client route instead of
-  becoming a blank page.
+- The renderer failure remains observable instead of becoming a blank page.
+- Automated simulation and protocol tests remain independent of WebGL.
+- Any future accessibility or non-WebGL presentation must be proposed as a new
+  ADR and must not be mistaken for the 3D match renderer.

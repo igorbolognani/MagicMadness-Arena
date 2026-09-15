@@ -117,3 +117,7 @@ At far zoom, decorative LOD may fall, gameplay cues may not.
 - arena readable at far zoom;
 - house function changes without unfair anchor movement;
 - destructible collision and preview update together.
+
+## Grand Meridian baseline — 2026-09-02
+
+The first authored arena is 2200×1240 with a safe margin of 58, ten shrine/house collision structures, destructible elemental crates, six ruin-wall lines, a central dual-rune dais and four elemental corner identities. Camera framing derives from arena dimensions rather than fixed 1600×900 constants. Zoom affects only visibility; the full collision map remains deterministic.

@@ -144,3 +144,7 @@ Avoid:
 - pity state visible/testable;
 - economy values can change without code changes;
 - spend cohort does not create systemic PvP advantage after skill/band adjustment.
+
+## 3D collection presentation — 2026-09-02
+
+The collection owns cosmetic 3D packages—skins, focus models, spawn rings, victory poses and VFX variants—by stable asset IDs. Cosmetics cannot alter collider silhouette, telegraph certainty or competitive readability. Missing assets fail closed to the base elemental package; no paid ownership is accepted from browser claims.

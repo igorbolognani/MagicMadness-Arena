@@ -16,8 +16,8 @@ test("public homepage reaches the local bot match", async ({ page }) => {
   await expect(page.getByTestId("game-client")).toBeVisible({ timeout: 15000 });
   await expect(page.getByTestId("arena-canvas")).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("LOCAL BOT MATCH")).toBeVisible();
+  await expect(page.locator(".renderer-readout")).toHaveText(/3D READY|3D UNAVAILABLE|3D CHECKING/);
   await expect(page.getByTestId("move-stick")).toBeVisible();
-  await expect(page.getByTestId("aim-stick")).toBeVisible();
   await expect(page.getByTestId("skill-1")).toBeVisible();
   await expect(page.getByTestId("skill-1")).toHaveCSS("border-radius", "50%");
 
@@ -35,18 +35,23 @@ test("public homepage reaches the local bot match", async ({ page }) => {
   if (!skillBox) throw new Error("Skill control did not have a layout box");
   await page.mouse.move(skillBox.x + skillBox.width / 2, skillBox.y + skillBox.height / 2);
   await page.mouse.down();
+  await page.mouse.move(skillBox.x + skillBox.width + 64, skillBox.y + skillBox.height / 2, { steps: 3 });
   await page.waitForTimeout(120);
   await page.mouse.up();
   await expect(page.locator(".event-log")).toContainText(/CAST START|INPUT ACCEPTED/i);
 
   const aimStick = page.getByTestId("aim-stick");
-  const aimBox = await aimStick.boundingBox();
-  if (!aimBox) throw new Error("Aim stick did not have a layout box");
-  await page.mouse.move(aimBox.x + aimBox.width / 2, aimBox.y + aimBox.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(aimBox.x + 8, aimBox.y + aimBox.height / 2, { steps: 3 });
-  await page.mouse.up();
-  await expect(page.locator(".aim-readout")).toHaveText("AIM 180°");
+  if (test.info().project.name === "landscape-mobile") {
+    await expect(aimStick).toBeHidden();
+  } else {
+    const aimBox = await aimStick.boundingBox();
+    if (!aimBox) throw new Error("Aim stick did not have a layout box");
+    await page.mouse.move(aimBox.x + aimBox.width / 2, aimBox.y + aimBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(aimBox.x + 8, aimBox.y + aimBox.height / 2, { steps: 3 });
+    await page.mouse.up();
+    await expect(page.locator(".aim-readout")).toHaveText("AIM 180°");
+  }
 
   await page.getByRole("button", { name: "Pause match" }).click();
   await expect(page.getByRole("status")).toContainText("MATCH PAUSED");

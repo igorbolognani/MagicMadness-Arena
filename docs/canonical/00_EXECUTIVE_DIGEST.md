@@ -9,7 +9,7 @@
 
 ## Product definition
 
-**MagicMadness Arena** is a mobile-first, landscape, top-down 2D competitive physics arena hero-brawler with two equally important game pillars:
+**MagicMadness Arena** is a mobile-first, landscape, top-down competitive physics arena hero-brawler. Its deterministic combat simulation is 2D, while its game-client presentation is a readable authored 3D world with chibi heroes and elemental VFX. It has two equally important game pillars:
 
 1. **PvP:** skillful movement, aiming, predictive skill preview, damage, control, knockback, map interaction and spectacular arena knockouts.
 2. **PvE / History:** staged elemental progression, difficult bosses, mobs, map mechanics and progression rewards that let a skilled free player meaningfully advance without paying.
@@ -228,7 +228,7 @@ Vertical-in-effect:
 - projectile arcs;
 - grounded/airborne mechanic targeting.
 
-The game stays top-down 2D but represents vertical state clearly with shadow/sprite/VFX cues.
+The simulation stays top-down 2D but represents vertical state clearly with 3D model height, a ground shadow and VFX cues.
 
 ## Interaction matrix
 
@@ -504,7 +504,7 @@ Avoid “a million” simultaneous configuration choices. Rich account informati
 
 ## Visual/UX direction
 
-- polished stylized 2D;
+- polished stylized 3D presentation over a readable top-down plane;
 - top-down;
 - strong silhouettes;
 - hero-specific high-quality VFX;
@@ -586,3 +586,7 @@ A build is not MagicMadness Arena until it proves:
 8. respawn/score rules are understandable;
 9. persistent builds feel different without deciding PvP;
 10. bots and friends can expose balance problems quickly.
+
+## 3D client baseline — 2026-09-02
+
+The product is now explicitly a **deterministic 2D combat simulation presented through an authored 3D game client**. The first release target is the Grand Meridian: a 2200×1240 world, one player versus four bots, ten collision-bearing shrine/house structures, top-down readable chibi bodies, direct 360° cast preview and element-specific VFX. “Warlock-like” means camera readability and arena-first HUD hierarchy; all models, icons, world fiction and interface assets remain original MagicMadness work.

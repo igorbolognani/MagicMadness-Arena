@@ -27,3 +27,7 @@ The five execution files are Architecture, Data Contracts, Workflows, UI/UX, and
 The nineteenth file is the decision-traceability audit.
 
 If the UI allows fewer attachments, use two batches. Upload `00–12` first and `13–18` second, then paste the bootstrap prompt after both batches are in context.
+
+## 3D continuation package — 2026-09-02
+
+The canonical package contains **20 files**: 19 specifications (`00–18`) plus this manifest. Every specification now carries the hosted 3D client implications. The preferred order remains Executive/D0–D11, Architecture/Data/Workflow/UI, Bootstrap and Traceability. ADR-006 through ADR-008 and the latest architecture audit are required companion evidence but do not replace a canonical file.

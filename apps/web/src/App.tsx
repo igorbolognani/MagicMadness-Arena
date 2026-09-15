@@ -1,18 +1,24 @@
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { BuildWorkshop } from "./components/BuildWorkshop";
+import { lazy, Suspense, useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { DevelopmentAuthProvider, type Identity } from "@mma/auth";
 import {
   expandedElementDefinitions,
   heroDefinitions,
   historyChapters,
-  runeDefinitions,
+  historyStages,
   skillDefinitions,
-  talentNodes,
   type HeroDefinition,
   type HeroId,
 } from "@mma/content";
 import { MODE_RULES } from "@mma/balance";
 import { createAccountProgression, accountBand } from "@mma/progression";
-import { LiveGame } from "./game/LiveGame";
+import { ClientJourney, Spellbook, CollectionRoom, AccountRecordPanel } from "./components/ClientJourney";
+import { ElementIcon, SkillIcon } from "./components/GameIcon";
+
+const LiveGame = lazy(() => import("./game/LiveGame").then(({ LiveGame: Component }) => ({ default: Component })));
+const VerifiedGame = lazy(() => import("./game/VerifiedGame").then(({ VerifiedGame: Component }) => ({ default: Component })));
+const HeroShowcase = lazy(() => import("./game/HeroShowcase").then(({ HeroShowcase: Component }) => ({ default: Component })));
+const VisualLab = lazy(() => import("./game/VisualLab").then(({ VisualLab: Component }) => ({ default: Component })));
 
 type Navigate = (to: string) => void;
 
@@ -27,8 +33,15 @@ declare global {
   }
 }
 
-const AUTH_STORAGE_KEY = "magicmadness.identity";
 const developmentAuth = new DevelopmentAuthProvider();
+
+type HostedAccount = {
+  accountId: string;
+  displayName: string;
+  level: number;
+  experience: number;
+  selectedHeroId: HeroId;
+};
 
 const elementGlyph: Record<string, string> = {
   fire: "✦",
@@ -87,40 +100,71 @@ function exitBrowserFullscreen(): void {
   if (exit) void exit.catch(() => undefined);
 }
 
-function readStoredIdentity(): Identity | null {
-  if (typeof window === "undefined") return null;
-  const value = window.localStorage.getItem(AUTH_STORAGE_KEY);
-  if (!value) return null;
-  try {
-    const identity = JSON.parse(value) as Identity;
-    if (!identity.accountId || !identity.displayName || !identity.provider) return null;
-    return identity;
-  } catch {
-    return null;
-  }
-}
-
 function useAuth() {
-  const [identity, setIdentity] = useState<Identity | null>(readStoredIdentity);
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [account, setAccount] = useState<HostedAccount | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const hasChatGptBridge = typeof window !== "undefined" && Boolean(window.MagicMadnessAuth);
 
-  const signIn = useCallback(async () => {
-    const next = window.MagicMadnessAuth
-      ? await window.MagicMadnessAuth.signIn()
-      : await developmentAuth.signIn();
-    setIdentity(next);
-    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
-    return next;
+  const loadHostedAccount = useCallback(async (): Promise<Identity> => {
+    const response = await fetch("/api/account", { credentials: "include", headers: { accept: "application/json" } });
+    if (!response.ok) throw new Error(response.status === 401 ? "Sign in is required by the hosting surface." : "The hosted account service is unavailable.");
+    const payload = await response.json() as { account: HostedAccount };
+    const nextIdentity: Identity = { accountId: payload.account.accountId, displayName: payload.account.displayName, provider: "chatgpt" };
+    setAccount(payload.account);
+    setIdentity(nextIdentity);
+    return nextIdentity;
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void loadHostedAccount().catch(async () => {
+      if (!import.meta.env.DEV || !active) return;
+      const next = await developmentAuth.getSession();
+      if (active && next) {
+        setIdentity(next);
+        setAccount({ accountId: next.accountId, displayName: next.displayName, level: 1, experience: 0, selectedHeroId: "fire-ember" });
+      }
+    }).finally(() => { if (active) setSessionChecked(true); });
+    return () => { active = false; };
+  }, [loadHostedAccount]);
+
+  const signIn = useCallback(async () => {
+    if (window.MagicMadnessAuth) await window.MagicMadnessAuth.signIn();
+    try { return await loadHostedAccount(); }
+    catch (cause) {
+      if (!import.meta.env.DEV) { window.location.assign("/signin-with-chatgpt?return_to=%2Fgame"); throw new Error("Opening secure sign in…"); }
+      const next = await developmentAuth.signIn();
+      setIdentity(next);
+      setAccount({ accountId: next.accountId, displayName: next.displayName, level: 1, experience: 0, selectedHeroId: "fire-ember" });
+      return next;
+    }
+  }, [loadHostedAccount]);
 
   const signOut = useCallback(async () => {
     if (window.MagicMadnessAuth?.signOut) await window.MagicMadnessAuth.signOut();
-    else await developmentAuth.signOut();
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    else if (import.meta.env.DEV && identity?.provider === "dev") await developmentAuth.signOut();
+    else { window.location.assign("/signout-with-chatgpt?return_to=%2Flogin"); return; }
     setIdentity(null);
-  }, []);
+    setAccount(null);
+  }, [identity?.provider]);
 
-  return { identity, signIn, signOut, hasChatGptBridge };
+  const selectHero = useCallback(async (heroId: HeroId) => {
+    setAccount((current) => current ? { ...current, selectedHeroId: heroId } : current);
+    if (import.meta.env.DEV && identity?.provider === "dev") return;
+    const response = await fetch("/api/account/hero", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ heroId }),
+    });
+    if (!response.ok) {
+      await loadHostedAccount().catch(() => undefined);
+      throw new Error("The selected hero could not be persisted.");
+    }
+  }, [identity?.provider, loadHostedAccount]);
+
+  return { identity, account, sessionChecked, signIn, signOut, selectHero, hasChatGptBridge, refreshAccount: loadHostedAccount };
 }
 
 function RouteLink({
@@ -152,7 +196,7 @@ function RouteLink({
 function HeroBadge({ hero, compact = false }: { hero: HeroDefinition; compact?: boolean }) {
   return (
     <span className={"hero-badge" + (compact ? " compact" : "")} style={{ "--hero-color": hero.color } as CSSProperties}>
-      <span>{elementGlyph[hero.element] ?? "✦"}</span>
+      <span><ElementIcon element={hero.element} /></span>
       <span>{hero.name}</span>
     </span>
   );
@@ -161,7 +205,7 @@ function HeroBadge({ hero, compact = false }: { hero: HeroDefinition; compact?: 
 function Brand({ navigate, inverse = false }: { navigate: Navigate; inverse?: boolean }) {
   return (
     <RouteLink to="/" navigate={navigate} className={"brand-lockup brand-button" + (inverse ? " inverse" : "")}>
-      <span className="brand-mark">MM</span>
+      <span className="brand-mark"><i>MM</i></span>
       <span>MagicMadness <small>ARENA</small></span>
     </RouteLink>
   );
@@ -179,6 +223,7 @@ function PublicChrome({ path, navigate, children }: { path: string; navigate: Na
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   return (
     <main className="public-page">
+      <div className="portal-ribbon"><span>MAGICMADNESS ONLINE</span><RouteLink to="/news" navigate={navigate}>NEWS</RouteLink><RouteLink to="/modes" navigate={navigate}>GAME MODES</RouteLink><RouteLink to="/how-it-works" navigate={navigate}>GAME GUIDE</RouteLink><em>THE MERIDIAN · ELEMENTAL ARENA</em></div>
       <nav className="public-nav">
         <Brand navigate={navigate} />
         <div className={"public-nav-links " + (mobileNavOpen ? "open" : "")}>
@@ -187,7 +232,7 @@ function PublicChrome({ path, navigate, children }: { path: string; navigate: Na
               {label}
             </RouteLink>
           ))}
-          <RouteLink to="/login" navigate={(to) => { setMobileNavOpen(false); navigate(to); }} className="ghost-button nav-cta">Sign in / Play</RouteLink>
+          <a href="/game" target="_blank" rel="noopener" className="ghost-button nav-cta">Open game client ↗</a>
         </div>
         <button className="mobile-public-menu" onClick={() => setMobileNavOpen((value) => !value)} aria-expanded={mobileNavOpen} aria-label="Open public menu">{mobileNavOpen ? "Close" : "Menu"}</button>
       </nav>
@@ -207,7 +252,7 @@ function Home({ navigate }: { navigate: Navigate }) {
           <h1>Make the arena<br /><span>answer to you.</span></h1>
           <p className="lead">MagicMadness Arena is a top-down hero brawler where aim, collision, momentum and map pressure make every cast visible — and every knockout earned.</p>
           <div className="hero-actions">
-            <button className="primary-button" onClick={() => navigate("/login")}>Enter the Arena <span>↗</span></button>
+            <a className="primary-button" href="/game" target="_blank" rel="noopener">Play MagicMadness <span>↗</span></a>
             <RouteLink to="/how-it-works" navigate={navigate} className="text-link">Learn the combat loop ↓</RouteLink>
           </div>
           <div className="trust-line"><span className="pulse-dot" /> Client build online · local bot playtest ready</div>
@@ -217,6 +262,12 @@ function Home({ navigate }: { navigate: Navigate }) {
           <div className="fact-card fact-card-small"><span className="fact-icon">◈</span><span><strong>Readable chaos</strong><small>Hold to preview every cast.</small></span></div>
           <div className="fact-card fact-card-small"><span className="fact-icon violet">ϟ</span><span><strong>Living arenas</strong><small>Wind Surge changes the line.</small></span></div>
         </div>
+      </section>
+      <section className="portal-news-board">
+        <div className="portal-news-title"><span>MERIDIAN NEWS</span><strong>LIVE SERVICE BOARD</strong></div>
+        <article><time>15.09</time><span>UPDATE</span><strong>New elemental heroes, curved silhouettes and stronger displacement.</strong></article>
+        <article><time>15.09</time><span>JOURNEY</span><strong>A guided client, spellbooks and saved talent / rune builds.</strong></article>
+        <button onClick={() => navigate("/news")}>ALL NEWS +</button>
       </section>
       <section className="public-section combat-preview-section">
         <div className="section-heading"><p className="eyebrow">THE COMBAT LOOP</p><h2>Four rules create<br /><span>infinite situations.</span></h2></div>
@@ -296,7 +347,7 @@ function WorldExplainer() {
 }
 
 function NewsExplainer() {
-  return <section className="public-section news-list"><article><span className="news-date">CLIENT 0.1 · NOW</span><h2>Game client shell is online.</h2><p>Public discovery, authenticated launcher, local bot match, landscape controls, Pixi rendering, diagnostics and result scoring share one visual language.</p></article><article><span className="news-date">ARCHITECTURE</span><h2>Server authority stays separate.</h2><p>Vs Bots can run the shared Game Core locally. Competitive multiplayer keeps a deployable authoritative server boundary and is never simulated as if browser state were trusted.</p></article><article><span className="news-date">NEXT DEPENDENCY</span><h2>History becomes a playable path.</h2><p>Boss contracts, account progression, friends, expanded heroes, runes and final economy follow the canonical dependency order.</p></article></section>;
+  return <section className="public-section news-list"><article><span className="news-date">CLIENT 0.2 · NOW</span><h2>The 3D game client is online.</h2><p>Public discovery, authenticated launcher, local bot match, landscape controls, Three.js rendering, elemental VFX, diagnostics and result scoring share one game universe.</p></article><article><span className="news-date">ARCHITECTURE</span><h2>Server authority stays separate.</h2><p>Vs Bots can run the shared Game Core locally. Competitive multiplayer keeps a deployable authoritative server boundary and is never simulated as if browser state were trusted.</p></article><article><span className="news-date">NEXT DEPENDENCY</span><h2>History becomes a playable path.</h2><p>Boss contracts, account progression, friends, expanded heroes, runes and final economy follow the canonical dependency order.</p></article></section>;
 }
 
 function LoginPage({ navigate, signIn, hasChatGptBridge }: { navigate: Navigate; signIn: () => Promise<Identity>; hasChatGptBridge: boolean }) {
@@ -314,7 +365,7 @@ function LoginPage({ navigate, signIn, hasChatGptBridge }: { navigate: Navigate;
       setLoading(false);
     }
   }
-  return <PublicChrome path="/login" navigate={navigate}><section className="login-page"><div className="login-art"><img src="/assets/magicmadness-battle.webp" alt="MagicMadness Arena battle" /><div className="login-art-caption"><span className="pulse-dot" /> THE MERIDIAN IS OPEN</div></div><div className="login-panel"><p className="eyebrow">ACCESS THE GAME CLIENT</p><h1>Enter the<br /><span>arena.</span></h1><p className="lead">Your account is the bridge between the public world and the private game shell: profile, heroes, progression, history and matches.</p><button className="primary-button login-button" onClick={() => void handleSignIn()} disabled={loading}>{loading ? "Opening client…" : hasChatGptBridge ? "Continue with ChatGPT" : "Continue to development client"}<span>↗</span></button><div className="auth-note"><span className="auth-check">✓</span><span><strong>{hasChatGptBridge ? "ChatGPT identity adapter detected" : "Local adapter active"}</strong><small>{hasChatGptBridge ? "The hosting surface controls the sign-in handshake." : "A development identity keeps the client playable until the hosting surface supplies sign-in."}</small></span></div>{error && <p className="error-message">{error}</p>}<RouteLink to="/" navigate={navigate} className="text-link">Back to public site</RouteLink></div></section></PublicChrome>;
+  return <main className="client-login"><section className="login-page"><div className="login-art"><img src="/assets/magicmadness-battle.webp" alt="MagicMadness Arena battle" /><div className="login-art-caption"><span className="pulse-dot" /> THE MERIDIAN IS OPEN</div></div><div className="login-panel"><p className="eyebrow">ACCESS THE GAME CLIENT</p><h1>Enter the<br /><span>arena.</span></h1><p className="lead">Your account is the bridge between the public world and the private game shell: profile, heroes, progression, history and matches.</p><button className="primary-button login-button" onClick={() => void handleSignIn()} disabled={loading}>{loading ? "Opening client…" : import.meta.env.DEV ? "Enter development client" : "Sign in with ChatGPT"}<span>↗</span></button><div className="auth-note"><span className="auth-check">✓</span><span><strong>{import.meta.env.DEV ? "Development session" : "Your MagicMadness account"}</strong><small>{import.meta.env.DEV ? "Progression rewards are disabled in development." : "Your hero and journey are saved to your account."}</small></span></div>{error && <p className="error-message">{error}</p>}<RouteLink to="/" navigate={navigate} className="text-link">Back to public site</RouteLink></div></section></main>;
 }
 
 const gameNav = [
@@ -326,22 +377,25 @@ const gameNav = [
   ["/game/runes", "◇", "Runes"],
   ["/game/friends", "♢", "Friends"],
   ["/game/collection", "▦", "Collection"],
+  ["/game/visual-lab", "⌬", "3D Visual Lab"],
 ] as const;
 
-function GameHubLayout({ path, navigate, identity, signOut, children }: { path: string; navigate: Navigate; identity: Identity; signOut: () => Promise<void>; children: ReactNode }) {
+function GameHubLayout({ path, navigate, identity, selectedHero, account, signOut, children }: { path: string; navigate: Navigate; identity: Identity; selectedHero: HeroId; account: HostedAccount; signOut: () => Promise<void>; children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => setMenuOpen(false), [path]);
+  const hero = heroDefinitions.find((entry) => entry.id === selectedHero) ?? heroDefinitions.find((entry) => entry.id === "fire-ember")!;
   async function leaveAccount() {
     await signOut();
     navigate("/");
   }
-  return <main className="game-shell"><header className="game-shell-header"><button className="mobile-menu-button" onClick={() => setMenuOpen((value) => !value)} aria-label="Open game menu">☰</button><Brand navigate={navigate} inverse /><div className="game-shell-status"><span className="pulse-dot" /> CLIENT ONLINE <small>LOCAL BUILD</small></div><button className="account-chip" onClick={() => navigate("/game/profile")}><span className="avatar">{identity.displayName.slice(0, 1).toUpperCase()}</span><span><strong>{identity.displayName}</strong><small>Level 12 · Profile</small></span></button><button className="shell-exit" onClick={() => void leaveAccount()}>Exit</button></header><div className="game-shell-layout"><aside className={"game-shell-sidebar " + (menuOpen ? "open" : "")}><div className="shell-nav-label">GAME CLIENT</div>{gameNav.map(([to, glyph, label]) => <RouteLink key={to} to={to} navigate={navigate} className={path === to ? "active" : ""} ><span>{glyph}</span>{label}{to === "/game/play" && <em>GO</em>}</RouteLink>)}<div className="shell-sidebar-footer"><span className="status-line"><span className="pulse-dot" /> Simulation ready</span><small>Authoritative multiplayer remains a separate server path.</small></div></aside><section className="game-shell-content">{children}</section></div></main>;
+  return <main className="game-shell">{path !== "/game" && path !== "/game/heroes" && <div className="client-ambient" aria-hidden="true"><Suspense fallback={<div className="showcase-loading">Loading 3D scene…</div>}><HeroShowcase hero={hero} /></Suspense></div>}<header className="game-shell-header"><button className="mobile-menu-button" onClick={() => setMenuOpen((value) => !value)} aria-label="Open game menu">☰</button><Brand navigate={navigate} inverse /><div className="game-shell-status"><span className="pulse-dot" /> THE MERIDIAN <small>GAME CLIENT</small></div><button className="account-chip" onClick={() => navigate("/game/profile")}><span className="avatar">{identity.displayName.slice(0, 1).toUpperCase()}</span><span><strong>{identity.displayName}</strong><small>Level {account.level} · Profile</small></span></button><button className="shell-exit" onClick={() => void leaveAccount()}>Log out</button></header><div className="game-shell-layout"><aside className={"game-shell-sidebar " + (menuOpen ? "open" : "")}><div className="shell-nav-label">GAME CLIENT / MERIDIAN</div><div className="shell-hero-status"><span className="shell-hero-orb" style={{ background: hero.color }} /><span><strong>{hero.name}</strong><small>Starter · Level 1</small></span></div>{gameNav.map(([to, glyph, label]) => <RouteLink key={to} to={to} navigate={navigate} className={path === to ? "active" : ""} ><span>{glyph}</span>{label}{to === "/game/talents" && account.level < 10 && <small>Lv.10</small>}{to === "/game/runes" && account.level < 5 && <small>Lv.5</small>}{to === "/game/collection" && <small>Locked</small>}{to === "/game/play" && <em>GO</em>}</RouteLink>)}<div className="shell-sidebar-footer"><span className="status-line"><span className="pulse-dot" /> Simulation ready</span><small>Aim carefully. Hold your ground. Recover before the edge.</small></div></aside><section className="game-shell-content">{children}</section></div></main>;
 }
 
 function HubHeader({ eyebrow, title, action, navigate }: { eyebrow: string; title: string; action?: [string, string]; navigate: Navigate }) {
   return <div className="hub-heading"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1></div>{action && <button className="primary-button compact" onClick={() => navigate(action[0])}>{action[1]} <span>↗</span></button>}</div>;
 }
 
-function GameLauncher({ navigate, selectedHero, setSelectedHero }: { navigate: Navigate; selectedHero: HeroId; setSelectedHero: (heroId: HeroId) => void }) {
+function GameLauncher({ navigate, selectedHero, account, setSelectedHero }: { navigate: Navigate; selectedHero: HeroId; account: HostedAccount; setSelectedHero: (heroId: HeroId) => void }) {
   const hero = heroDefinitions.find((entry) => entry.id === selectedHero) ?? heroDefinitions[0];
   if (!hero) return null;
   const start = () => {
@@ -349,37 +403,57 @@ function GameLauncher({ navigate, selectedHero, setSelectedHero }: { navigate: N
     requestBrowserFullscreen();
     navigate(`/match/local/${matchId}`);
   };
-  return <><HubHeader eyebrow="GAME CLIENT · READY" title="Open the arena." action={["/game/play", "Choose a mode"]} navigate={navigate} /><section className="launcher-hero"><div className="launcher-hero-background"><img src="/assets/magicmadness-battle.webp" alt="" /></div><div className="launcher-hero-copy"><span className="launcher-kicker"><span className="pulse-dot" /> BUILD 0.1 · PLAYABLE</span><h2>Momentum is<br /><span>the real spell.</span></h2><p>Enter a full-viewport match client with a deterministic local simulation, rendered arena, hold-to-preview casting, environmental pressure and a result screen.</p><button className="primary-button" onClick={start}>Play Vs Bots <span>↗</span></button></div><div className="launcher-readout"><span className="mini-label">SELECTED HERO</span><div className="launcher-hero-id" style={{ "--hero-color": hero.color } as CSSProperties}><span>{elementGlyph[hero.element]}</span><div><strong>{hero.name}</strong><small>{elementLabels[hero.element]} · {hero.primaryClass}</small></div></div><button className="text-link" onClick={() => navigate("/game/heroes")}>Change hero →</button></div></section><div className="launcher-grid"><article className="launcher-card"><span className="mini-label">NEXT MATCH</span><h3>Windfall Ring</h3><p>One arena contract · Wind Surge · four fighters · one standard respawn.</p><div className="launcher-tags"><span>1600 × 900</span><span>LOCAL CORE</span><span>BOT READY</span></div></article><article className="launcher-card"><span className="mini-label">ACCOUNT SIGNAL</span><h3>Level 12 · {accountBand(12)}</h3><p>Your profile is ready for starter heroes, talents and runes. Competitive power caps remain data-driven.</p><button className="text-link" onClick={() => navigate("/game/profile")}>Open profile →</button></article></div><section className="launcher-select"><div className="section-heading small"><p className="eyebrow">QUICK SELECT</p><h2>Pick your fighter.</h2></div><div className="hero-select-grid">{heroDefinitions.map((entry) => <button key={entry.id} className={"select-hero " + (entry.id === selectedHero ? "selected" : "")} style={{ "--hero-color": entry.color } as CSSProperties} onClick={() => setSelectedHero(entry.id)}><span className="select-glyph">{elementGlyph[entry.element]}</span><span><strong>{entry.name}</strong><small>{elementLabels[entry.element]} · {entry.primaryClass}</small></span><span className="select-check">{entry.id === selectedHero ? "✓" : "○"}</span></button>)}</div></section></>;
+  return <><HubHeader eyebrow={`GAME CLIENT · LEVEL ${account.level}`} title="Open the arena." action={["/game/play", "Choose a mode"]} navigate={navigate} /><section className="launcher-hero"><div className="launcher-hero-background"><img src="/assets/magicmadness-battle.webp" alt="" /></div><div className="launcher-hero-copy"><span className="launcher-kicker"><span className="pulse-dot" /> THE MERIDIAN · TRAINING OPEN</span><h2>Meet your first<br /><span>elemental hero.</span></h2><p>Choose your starter, enter a spacious fullscreen 3D arena and learn movement, 360° aiming, impact, knockback and elemental pressure against four chibi bots.</p><button className="primary-button" onClick={start}>Play Vs Bots <span>↗</span></button></div><div className="launcher-readout"><HeroShowcase hero={hero} /><span className="mini-label">STARTER HERO · LEVEL 1</span><div className="launcher-hero-id" style={{ "--hero-color": hero.color } as CSSProperties}><span><ElementIcon element={hero.element} /></span><div><strong>{hero.name}</strong><small>{elementLabels[hero.element]} · {hero.primaryClass}</small></div></div><button className="text-link" onClick={() => navigate("/game/heroes")}>Choose another hero →</button></div></section><div className="launcher-grid"><article className="launcher-card"><span className="mini-label">FIRST MATCH</span><h3>Grand Meridian · 3D</h3><p>Five fighters, four elemental families, Wind Surge, circular skills and one standard respawn. The larger arena uses authored shrines, ruins and cover.</p><div className="launcher-tags"><span>3D SCENE</span><span>4 ELEMENTS</span><span>4 BOTS</span></div></article><article className="launcher-card"><span className="mini-label">ACCOUNT SIGNAL</span><h3>Level {account.level} · {accountBand(account.level)}</h3><p>Your hero, guide and build stay with your account. Grow through verified battles to unlock skills, rune slots and talent choices.</p><button className="text-link" onClick={() => navigate("/game/profile")}>Open profile →</button></article></div><section className="launcher-select"><div className="section-heading small"><p className="eyebrow">STARTER SELECT</p><h2>Choose your fighter.</h2></div><div className="hero-select-grid">{heroDefinitions.map((entry) => <button key={entry.id} className={"select-hero " + (entry.id === selectedHero ? "selected" : "")} style={{ "--hero-color": entry.color } as CSSProperties} onClick={() => setSelectedHero(entry.id)}><span className="select-glyph"><ElementIcon element={entry.element} /></span><span><strong>{entry.name}</strong><small>{elementLabels[entry.element]} · {entry.primaryClass}</small></span><span className="select-check">{entry.id === selectedHero ? "✓" : "○"}</span></button>)}</div></section></>;
 }
 
 function PlayHub({ navigate, selectedHero, setSelectedHero }: { navigate: Navigate; selectedHero: HeroId; setSelectedHero: (heroId: HeroId) => void }) {
-  const start = () => {
+  const [verifiedAvailable, setVerifiedAvailable] = useState(false);
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/matches/availability", { credentials: "include", headers: { accept: "application/json" } })
+      .then((response) => response.ok ? response.json() as Promise<{ available?: boolean }> : Promise.reject(new Error("availability_failed")))
+      .then((payload) => { if (active) setVerifiedAvailable(payload.available === true); })
+      .catch(() => { if (active) setVerifiedAvailable(false); })
+      .finally(() => { if (active) setAvailabilityChecked(true); });
+    return () => { active = false; };
+  }, []);
+  const startPractice = () => {
     const matchId = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     requestBrowserFullscreen();
     navigate(`/match/local/${matchId}`);
   };
-  return <><HubHeader eyebrow="PLAY · MATCHMAKING" title="Choose your pressure." navigate={navigate} /><div className="play-status-bar"><span><span className="pulse-dot" /> local simulation ready</span><small>Every match uses the shared deterministic Game Core.</small></div><div className="mode-grid hub-mode-grid"><article className="mode-card featured-mode"><div><span className="mode-icon">✦</span><span className="mini-label">RECOMMENDED FIRST</span><h2>Vs Bots</h2><p>One authored arena, Wind Surge and the complete starter combat loop. Start immediately in the fullscreen client.</p></div><button className="primary-button" onClick={start}>Start local match <span>↗</span></button></article><article className="mode-card"><span className="mode-tag">PvE · CONTRACT READY</span><h3>History</h3><p>Study the four elemental chapters. Boss staging is visible; only authored boss content is playable when its contract is complete.</p><button className="text-link" onClick={() => navigate("/game/history")}>Open history →</button></article><article className="mode-card"><span className="mode-tag">FFA · SERVER PATH</span><h3>Normal</h3><p>Standard round rules with one respawn. Online authority is reserved for the deployable server.</p><span className="muted-copy tiny">Server boundary ready · lobby not connected</span></article><article className="mode-card"><span className="mode-tag">RATING · LOCKED</span><h3>Ranked</h3><p>Competitive play waits for authoritative matchmaking and persistence.</p><span className="muted-copy tiny">Position, hit and score never trust the browser.</span></article><article className="mode-card"><span className="mode-tag">SOCIAL · IN BUILD</span><h3>Friends</h3><p>Invite-link rooms are modeled separately from local play.</p><button className="text-link" onClick={() => navigate("/game/friends")}>Open friends →</button></article></div><HeroPicker selectedHero={selectedHero} setSelectedHero={setSelectedHero} /><div className="contract-banner"><strong>Standard contract verified</strong><span>{MODE_RULES.standard.respawns} respawn · Match Score separated from Performance Score</span></div></>;
+  const startVerified = () => {
+    requestBrowserFullscreen();
+    navigate(`/match/verified/${Date.now().toString(36)}`);
+  };
+  return <>
+    <HubHeader eyebrow="PLAY · MATCHMAKING" title="Choose your pressure." navigate={navigate} />
+    <div className="play-status-bar"><span><span className="pulse-dot" /> practice simulation ready</span><small>Practice freely with all starter spells. Verified battles use your account unlocks and award XP.</small></div>
+    <div className="mode-grid hub-mode-grid">
+      <article className="mode-card featured-mode"><div><span className="mode-icon">✦</span><span className="mini-label">LOCAL · NO REWARDS</span><h2>Practice Vs Bots</h2><p>Browser simulation with the complete arena loop. It never creates a receipt or persistent XP.</p></div><button className="primary-button" onClick={startPractice}>Start practice <span>↗</span></button></article>
+      <article className={`mode-card verified-mode-card ${verifiedAvailable ? "available" : "unavailable"}`}><span className="mode-tag">ACCOUNT PROGRESSION</span><h3>Verified Vs Bots</h3><p>Battle four opponents with your saved build. Completed verified battles award account XP and unlock your next skills.</p><button className={verifiedAvailable ? "primary-button" : "outline-button"} disabled={!verifiedAvailable} onClick={startVerified}>{verifiedAvailable ? "Start verified match" : availabilityChecked ? "Verified battles unavailable" : "Checking server…"}</button><span className="muted-copy tiny">{verifiedAvailable ? "Account rewards enabled" : "The online battle service is not available yet. Practice is open below."}</span></article>
+      <article className="mode-card"><span className="mode-tag">PvE · CONTRACT READY</span><h3>History</h3><p>Study the four elemental chapters. Boss staging is visible; only authored boss content is playable when its contract is complete.</p><button className="text-link" onClick={() => navigate("/game/history")}>Open history →</button></article>
+      <article className="mode-card"><span className="mode-tag">RATING · LOCKED</span><h3>Ranked</h3><p>Competitive play waits for authoritative matchmaking and persistence.</p><span className="muted-copy tiny">Position, hit and score never trust the browser.</span></article>
+      <article className="mode-card"><span className="mode-tag">SOCIAL · IN BUILD</span><h3>Friends</h3><p>Invite-link rooms are modeled separately from local play.</p><button className="text-link" onClick={() => navigate("/game/friends")}>Open friends →</button></article>
+    </div>
+    <HeroPicker selectedHero={selectedHero} setSelectedHero={setSelectedHero} />
+    <div className="contract-banner"><strong>Standard contract verified</strong><span>{MODE_RULES.standard.respawns} respawn · Match Score separated from Performance Score</span></div>
+  </>;
 }
 
 function HeroPicker({ selectedHero, setSelectedHero }: { selectedHero: HeroId; setSelectedHero: (heroId: HeroId) => void }) {
   return <section className="hero-select hub-picker"><div className="section-heading small"><p className="eyebrow">STARTER SELECT</p><h2>Pick a hero to test.</h2></div><div className="hero-select-grid">{heroDefinitions.map((hero) => <button key={hero.id} className={"select-hero " + (selectedHero === hero.id ? "selected" : "")} style={{ "--hero-color": hero.color } as CSSProperties} onClick={() => setSelectedHero(hero.id)}><span className="select-glyph">{elementGlyph[hero.element]}</span><span><strong>{hero.name}</strong><small>{elementLabels[hero.element]} · {hero.primaryClass}</small></span><span className="select-check">{selectedHero === hero.id ? "✓" : "○"}</span></button>)}</div></section>;
 }
 
-function ProfilePage({ identity, navigate }: { identity: Identity; navigate: Navigate }) {
+function ProfilePage({ identity, account: hosted, navigate }: { identity: Identity; account: HostedAccount; navigate: Navigate }) {
   const account = createAccountProgression(identity.accountId);
-  return <><HubHeader eyebrow="ACCOUNT · PROFILE" title="Your arena identity." action={["/game/play", "Play now"]} navigate={navigate} /><section className="account-profile-card"><div className="profile-avatar-large">{identity.displayName.slice(0, 1).toUpperCase()}</div><div><span className="mini-label">{identity.provider === "chatgpt" ? "CHATGPT ACCOUNT" : "DEVELOPMENT ACCOUNT"}</span><h2>{identity.displayName}</h2><p>Account {identity.accountId} · connected identity adapter</p><div className="profile-pill-row"><span>Level 12</span><span>{accountBand(12)} band</span><span>XP 7,420 / 10,000</span></div></div><div className="profile-rank"><span className="mini-label">CURRENT SIGNAL</span><strong>SPARKBOUND</strong><small>Local client progression</small></div></section><div className="account-stat-grid"><article><span className="mini-label">MATCHES</span><strong>24</strong><small>local playtests</small></article><article><span className="mini-label">BEST PLACEMENT</span><strong>#1</strong><small>Windfall Ring</small></article><article><span className="mini-label">TALENTS</span><strong>{account.unlockedTalentIds.length}/3</strong><small>data contract ready</small></article><article><span className="mini-label">CURRENCY</span><strong>120</strong><small>Spark · first clear</small></article></div><div className="profile-link-grid"><button onClick={() => navigate("/game/heroes")}><span>✦</span><strong>Roster</strong><small>Inspect hero identity and skills</small>→</button><button onClick={() => navigate("/game/talents")}><span>⌁</span><strong>Talents</strong><small>Account-capped sidegrades</small>→</button><button onClick={() => navigate("/game/runes")}><span>◇</span><strong>Runes</strong><small>Tradeoff-based build layer</small>→</button></div></>;
+  return <><HubHeader eyebrow="ACCOUNT · PROFILE" title="Your arena identity." action={["/game/play", "Play now"]} navigate={navigate} /><section className="account-profile-card"><div className="profile-avatar-large">{identity.displayName.slice(0, 1).toUpperCase()}</div><div><span className="mini-label">{identity.provider === "chatgpt" ? "CHATGPT ACCOUNT" : "DEVELOPMENT ACCOUNT"}</span><h2>{identity.displayName}</h2><p>Account {identity.accountId} · connected identity adapter</p><div className="profile-pill-row"><span>Level {hosted.level}</span><span>{accountBand(hosted.level)} band</span><span>{hosted.experience} XP total</span></div></div><div className="profile-rank"><span className="mini-label">CURRENT SIGNAL</span><strong>NEW AWAKENING</strong><small>Starter account</small></div></section><AccountRecordPanel experience={hosted.experience} level={hosted.level} /><div className="profile-link-grid"><button onClick={() => navigate("/game/heroes")}><span>✦</span><strong>Roster</strong><small>Choose your level 1 starter hero</small>→</button><button onClick={() => navigate("/game/talents")}><span>⌁</span><strong>Talents</strong><small>Locked until account progression</small>→</button><button onClick={() => navigate("/game/runes")}><span>◇</span><strong>Runes</strong><small>Locked until account progression</small>→</button></div></>;
 }
 
 function HeroesHub({ navigate, selectedHero, setSelectedHero }: { navigate: Navigate; selectedHero: HeroId; setSelectedHero: (heroId: HeroId) => void }) {
-  return <><HubHeader eyebrow="BUILD · HEROES" title="Read the roster." action={["/game/play", "Play selected"]} navigate={navigate} /><div className="hub-hero-grid">{heroDefinitions.map((hero) => <article className={"hub-hero-card " + (selectedHero === hero.id ? "selected" : "")} key={hero.id} style={{ "--hero-color": hero.color } as CSSProperties}><div className="hub-hero-card-top"><span className="hub-hero-glyph">{elementGlyph[hero.element]}</span><span className="mode-tag">{elementLabels[hero.element]} · {hero.primaryClass}</span></div><h2>{hero.name}</h2><p>{hero.summary}</p><div className="hub-skill-list">{hero.skillIds.map((skillId, index) => { const skill = skillDefinitions.find((entry) => entry.id === skillId); return <span key={skillId}><b>{index + 1}</b>{skill?.name}</span>; })}</div><button className="outline-button" onClick={() => { setSelectedHero(hero.id); navigate("/game/play"); }}>{selectedHero === hero.id ? "Selected · play" : "Select hero"}</button></article>)}</div><div className="contract-banner"><strong>Starter roster complete</strong><span>four heroes · sixteen authored skills · all values come from versioned content and balance data</span></div></>;
-}
-
-function TalentsPage({ navigate }: { navigate: Navigate }) {
-  return <><HubHeader eyebrow="BUILD · ACCOUNT TALENTS" title="Shape the account, not the hitbox." navigate={navigate} /><div className="system-intro"><p>Talent contracts unlock by account level and stay within the canonical PvP caps. They create sidegrades and control choices rather than uncapped global power.</p><span className="system-version">META BASELINE · 0.1</span></div><div className="talent-grid">{talentNodes.map((talent) => <article className="talent-card" key={talent.id}><div className="talent-top"><span className={"branch-badge " + talent.branch.toLowerCase()}>{talent.branch}</span><span>LEVEL {talent.requiredAccountLevel}</span></div><h2>{talent.description}</h2><p>{talent.effectKind} · {talent.glossaryRefs.join(" · ")}</p><button className="outline-button" disabled>Locked for this account</button></article>)}</div></>;
-}
-
-function RunesPage({ navigate }: { navigate: Navigate }) {
-  return <><HubHeader eyebrow="BUILD · RUNES" title="Power with a visible tradeoff." navigate={navigate} /><div className="system-intro"><p>Runes are compatible, budgeted and stacking-aware. The positive effect is always paired with a cost so the build remains legible in combat.</p><span className="system-version">POWER BUDGET · TIER 1</span></div><div className="rune-grid">{runeDefinitions.map((rune) => <article className="rune-card" key={rune.id}><div className="rune-symbol">◇</div><div><span className="mode-tag">{rune.family} · TIER {rune.tier}</span><h2>{rune.id.replace("rune-", "").replaceAll("-", " ")}</h2><div className="rune-trade"><span><small>+</small>{rune.positiveEffect}</span><span><small>−</small>{rune.tradeoff}</span></div><p>Compatible: {rune.compatibleTags.join(", ")} · stacking group {rune.stackingGroup}</p></div><button className="outline-button" disabled>Equip in account build</button></article>)}</div></>;
+  const selected = heroDefinitions.find((hero) => hero.id === selectedHero) ?? heroDefinitions.find((hero) => hero.id === "fire-ember")!;
+  return <><HubHeader eyebrow="BUILD · HEROES" title="Read the roster." action={["/game/play", "Play selected"]} navigate={navigate} /><section className="hero-detail-panel" style={{ "--hero-color": selected.color } as CSSProperties}><div><span className="mini-label">SELECTED STARTER · LEVEL 1</span><h2>{selected.name}</h2><p>{selected.summary}</p><div className="hero-detail-facts"><span>{elementLabels[selected.element]}</span><span>{selected.primaryClass}</span><span>{selected.difficulty} onboarding</span></div><button className="primary-button" onClick={() => navigate("/game/play")}>Play as {selected.name} <span>↗</span></button></div><HeroShowcase hero={selected} /></section><Spellbook heroId={selected.id} /><div className="hub-hero-grid">{heroDefinitions.map((hero) => <article className={"hub-hero-card " + (selectedHero === hero.id ? "selected" : "")} key={hero.id} style={{ "--hero-color": hero.color } as CSSProperties}><div className="hub-hero-card-top"><span className="hub-hero-glyph"><ElementIcon element={hero.element} /></span><span className="mode-tag">{elementLabels[hero.element]} · {hero.primaryClass}</span></div><h2>{hero.name}</h2><p>{hero.summary}</p><div className="hub-skill-list">{hero.skillIds.map((skillId, index) => { const skill = skillDefinitions.find((entry) => entry.id === skillId); const behavior = skill ? skill.geometry.kind === "line" ? "projectile" : skill.geometry.kind : "projectile"; return <span key={skillId}><SkillIcon behavior={behavior} element={hero.element} /><b>{index + 1}</b>{skill?.name}</span>; })}</div><button className="outline-button" onClick={() => setSelectedHero(hero.id)}>{selectedHero === hero.id ? "Selected · play" : "Select hero"}</button></article>)}</div><div className="contract-banner"><strong>Four elemental starters</strong><span>sixteen distinct skills · free starter selection · inspect each spell before entering the arena</span></div></>;
 }
 
 function HistoryPage({ navigate }: { navigate: Navigate }) {
@@ -388,14 +462,15 @@ function HistoryPage({ navigate }: { navigate: Navigate }) {
 
 function HistoryStageScreen({ stageId, navigate, selectedHero }: { stageId: string; navigate: Navigate; selectedHero: HeroId }) {
   const chapter = historyChapters.find((entry) => entry.stageIds.includes(stageId)) ?? historyChapters[0];
-  const boss = chapter?.bossIds[0] === "cinder-warden";
+  const stage = historyStages.find((entry) => entry.id === stageId);
+  const boss = stage?.purpose === "boss" && stage.bossId === "cinder-warden";
   const startStudyMatch = () => {
     const matchId = `history-${stageId}-${Date.now().toString(36)}`;
     requestBrowserFullscreen();
     navigate(`/match/local/${matchId}`);
   };
   if (!chapter) return null;
-  return <main className="stage-brief-page"><div className="stage-brief-back"><button className="game-brand" onClick={() => navigate("/game/history")}><span className="brand-mark">MM</span><span>Back to History</span></button><span className="system-version">STAGE BRIEF · {stageId}</span></div><section className="stage-brief-card" style={{ "--chapter-color": boss ? "#ff6b35" : "#b18cff" } as CSSProperties}><div className="stage-brief-art"><img src="/assets/magicmadness-battle.webp" alt="Elemental battle preview" /></div><div className="stage-brief-copy"><span className="mini-label">{elementLabels[chapter.element]} · CHAPTER {chapter.order}</span><h1>{chapter.title}</h1><p>This route exposes the canonical History contract. The current client can study the arena loop with a local simulation; boss authority and authored encounter scripting remain separate dependencies.</p><div className="brief-facts"><span><strong>{chapter.stageIds.length}</strong> stages</span><span><strong>{boss ? "3" : "—"}</strong> boss phases</span><span><strong>{chapter.teachingFocus.length}</strong> lessons</span></div><div className="result-actions"><button className="primary-button" onClick={startStudyMatch}>Play local study match <span>↗</span></button><button className="text-link" onClick={() => navigate("/game/history")}>Return to history</button></div><div className="contract-note"><strong>{boss ? "Cinder Warden contract authored" : "Boss contract placeholder"}</strong><span>{boss ? "telegraphed meteor · ember ring · destructible cover · edge recovery" : "This stage is visible but not presented as a finished boss fight."}</span></div></div></section><div className="stage-brief-footer"><span>Selected hero: {heroDefinitions.find((hero) => hero.id === selectedHero)?.name ?? selectedHero}</span><span>Local study mode · no competitive result</span></div></main>;
+  return <main className="stage-brief-page"><div className="stage-brief-back"><button className="game-brand" onClick={() => navigate("/game/history")}><span className="brand-mark">MM</span><span>Back to History</span></button><span className="system-version">STAGE BRIEF · {stageId}</span></div><section className="stage-brief-card" style={{ "--chapter-color": boss ? "#ff6b35" : "#b18cff" } as CSSProperties}><div className="stage-brief-art"><img src="/assets/magicmadness-battle.webp" alt="Elemental battle preview" /></div><div className="stage-brief-copy"><span className="mini-label">{elementLabels[chapter.element]} · CHAPTER {chapter.order} · {stage?.purpose?.toUpperCase() ?? "STAGE"}</span><h1>{chapter.title}</h1><p>This route exposes the canonical History contract. The current client can study the arena loop with a local simulation; boss authority and authored encounter scripting remain separate dependencies.</p><div className="brief-facts"><span><strong>{chapter.stageIds.length}</strong> stages</span><span><strong>{boss ? "3" : "—"}</strong> boss phases</span><span><strong>{stage?.mechanics.length ?? chapter.teachingFocus.length}</strong> mechanics</span></div><div className="result-actions"><button className="primary-button" onClick={startStudyMatch}>Play local study match <span>↗</span></button><button className="text-link" onClick={() => navigate("/game/history")}>Return to history</button></div><div className="contract-note"><strong>{boss ? "Cinder Warden contract authored" : "Boss contract placeholder"}</strong><span>{boss ? "telegraphed meteor · ember ring · destructible cover · edge recovery" : "This stage is visible but not presented as a finished boss fight."}</span></div></div></section><div className="stage-brief-footer"><span>Selected hero: {heroDefinitions.find((hero) => hero.id === selectedHero)?.name ?? selectedHero}</span><span>Local study mode · no competitive result</span></div></main>;
 }
 
 function GenericSystemPage({ kind, navigate }: { kind: "friends" | "collection"; navigate: Navigate }) {
@@ -417,7 +492,7 @@ function GameBootScreen({ matchId }: { matchId: string }) {
     return () => cancelAnimationFrame(frame);
   }, []);
   const stage = progress < 38 ? "Loading arena geometry" : progress < 68 ? "Binding input and balance" : progress < 100 ? "Starting local simulation" : "Client ready";
-  return <main className="game-boot-page" data-testid="game-boot"><div className="game-boot-mark"><span className="brand-mark">MM</span><div><strong>MAGICMADNESS</strong><small>ARENA CLIENT</small></div></div><div className="boot-visual"><img src="/assets/magicmadness-battle.webp" alt="" /><div className="boot-ring" /></div><div className="boot-copy"><p className="eyebrow">MATCH {matchId.toUpperCase()}</p><h1>Opening the<br /><span>arena client.</span></h1><div className="boot-progress"><div><span>{stage}</span><strong>{progress}%</strong></div><div className="progress-track"><span style={{ width: `${progress}%` }} /></div></div><div className="boot-status"><span><span className="pulse-dot" /> Pixi renderer</span><span><span className="pulse-dot" /> deterministic core</span><span><span className="status-hollow" /> server authority separate</span></div></div></main>;
+  return <main className="game-boot-page" data-testid="game-boot"><div className="game-boot-mark"><span className="brand-mark">MM</span><div><strong>MAGICMADNESS</strong><small>ARENA CLIENT</small></div></div><div className="boot-visual"><img src="/assets/magicmadness-battle.webp" alt="" /><div className="boot-ring" /></div><div className="boot-copy"><p className="eyebrow">MATCH {matchId.toUpperCase()}</p><h1>Opening the<br /><span>3D arena.</span></h1><div className="boot-progress"><div><span>{stage}</span><strong>{progress}%</strong></div><div className="progress-track"><span style={{ width: `${progress}%` }} /></div></div><div className="boot-status"><span><span className="pulse-dot" /> 3D scene renderer</span><span><span className="pulse-dot" /> deterministic core</span><span><span className="status-hollow" /> server authority separate</span></div></div></main>;
 }
 
 function MatchRoute({ matchId, heroId, onExit }: { matchId: string; heroId: HeroId; onExit: () => void }) {
@@ -425,43 +500,53 @@ function MatchRoute({ matchId, heroId, onExit }: { matchId: string; heroId: Hero
   useEffect(() => {
     const image = new Image();
     image.src = "/assets/magicmadness-battle.webp";
-    const timer = window.setTimeout(() => setReady(true), 1200);
-    return () => window.clearTimeout(timer);
-  }, []);
+    let active = true;
+    const minimum = new Promise<void>((resolve) => window.setTimeout(resolve, 650));
+    void Promise.all([minimum, import("./game/HeroAssetLoader").then(({ preloadHeroAssets }) => preloadHeroAssets())])
+      .catch(() => undefined)
+      .then(() => { if (active) setReady(true); });
+    return () => { active = false; };
+  }, [heroId]);
   if (!ready) return <GameBootScreen matchId={matchId} />;
-  return <LiveGame key={matchId} matchId={matchId} heroId={heroId} mode="standard" onExit={onExit} />;
+  return <Suspense fallback={<GameBootScreen matchId={matchId} />}><LiveGame key={matchId} matchId={matchId} heroId={heroId} mode="standard" onExit={onExit} /></Suspense>;
 }
 
-function GameHubPage({ path, navigate, identity, signOut }: { path: string; navigate: Navigate; identity: Identity; signOut: () => Promise<void> }) {
-  const [selectedHero, setSelectedHero] = useState<HeroId>(() => {
-    if (typeof window === "undefined") return "fire-ember";
-    return (window.localStorage.getItem("magicmadness.hero") as HeroId | null) ?? "fire-ember";
-  });
+function GameHubPage({ path, navigate, identity, initialSelectedHero, account, persistHero, signOut }: { path: string; navigate: Navigate; identity: Identity; initialSelectedHero: HeroId; account: HostedAccount; persistHero: (heroId: HeroId) => Promise<void>; signOut: () => Promise<void> }) {
+  const [selectedHero, setSelectedHero] = useState<HeroId>(initialSelectedHero);
+  const [saveError, setSaveError] = useState("");
+  useEffect(() => setSelectedHero(initialSelectedHero), [initialSelectedHero]);
   function chooseHero(heroId: HeroId) {
     setSelectedHero(heroId);
-    window.localStorage.setItem("magicmadness.hero", heroId);
+    void persistHero(heroId).catch(() => { setSelectedHero(initialSelectedHero); setSaveError("Hero could not be saved. Please try again."); });
   }
   let content: ReactNode;
   if (path === "/game/play") content = <PlayHub navigate={navigate} selectedHero={selectedHero} setSelectedHero={chooseHero} />;
-  else if (path === "/game/profile") content = <ProfilePage identity={identity} navigate={navigate} />;
+  else if (path === "/game/profile") content = <ProfilePage identity={identity} account={account} navigate={navigate} />;
   else if (path === "/game/heroes") content = <HeroesHub navigate={navigate} selectedHero={selectedHero} setSelectedHero={chooseHero} />;
-  else if (path === "/game/talents") content = <TalentsPage navigate={navigate} />;
-  else if (path === "/game/runes") content = <RunesPage navigate={navigate} />;
+  else if (path === "/game/talents") content = <BuildWorkshop kind="talents" level={account.level} heroId={selectedHero} dev={identity.provider === "dev"} />;
+  else if (path === "/game/runes") content = <BuildWorkshop kind="runes" level={account.level} heroId={selectedHero} dev={identity.provider === "dev"} />;
   else if (path === "/game/history") content = <HistoryPage navigate={navigate} />;
   else if (path === "/game/friends") content = <GenericSystemPage kind="friends" navigate={navigate} />;
-  else if (path === "/game/collection") content = <GenericSystemPage kind="collection" navigate={navigate} />;
-  else content = <GameLauncher navigate={navigate} selectedHero={selectedHero} setSelectedHero={chooseHero} />;
-  return <GameHubLayout path={path} navigate={navigate} identity={identity} signOut={signOut}>{content}</GameHubLayout>;
+  else if (path === "/game/collection") content = <CollectionRoom level={account.level} />;
+  else if (path === "/game/visual-lab") content = <VisualLab />;
+  else content = <GameLauncher navigate={navigate} account={account} selectedHero={selectedHero} setSelectedHero={chooseHero} />;
+  return <GameHubLayout path={path} navigate={navigate} identity={identity} selectedHero={selectedHero} account={account} signOut={signOut}><ClientJourney accountId={identity.accountId} dev={identity.provider === "dev"} path={path} navigate={navigate} />{saveError && <p role="alert" className="error-message">{saveError}</p>}{content}</GameHubLayout>;
 }
 
 function App() {
   const { path, navigate } = useRouter();
-  const { identity, signIn, signOut, hasChatGptBridge } = useAuth();
-  const storedHero = typeof window === "undefined" ? null : window.localStorage.getItem("magicmadness.hero");
-  const selectedHero = heroDefinitions.some((hero) => hero.id === storedHero) ? storedHero as HeroId : "fire-ember";
-  const matchPath = path.match(/^\/match\/(local|history)\/([^/]+)$/);
+  const { identity, account, sessionChecked, signIn, signOut, selectHero, hasChatGptBridge, refreshAccount } = useAuth();
+  useEffect(() => { if (path.startsWith("/game") && identity?.provider === "chatgpt") void refreshAccount().catch(() => undefined); }, [path, identity?.provider, refreshAccount]);
+  const selectedHero = account?.selectedHeroId ?? "fire-ember";
+  const matchPath = path.match(/^\/match\/(local|history|verified)\/([^/]+)$/);
+  if (matchPath && !sessionChecked) {
+    return <main className="game-boot-page"><div className="boot-copy"><p className="eyebrow">HOSTED ACCOUNT</p><h1>Loading your<br /><span>saved fighter.</span></h1></div></main>;
+  }
   if (matchPath?.[1] === "history" && identity) {
     return <HistoryStageScreen stageId={matchPath[2] ?? "fire-01"} navigate={navigate} selectedHero={selectedHero} />;
+  }
+  if (matchPath?.[1] === "verified" && identity && account) {
+    return <Suspense fallback={<GameBootScreen matchId="verified-server" />}><VerifiedGame heroId={selectedHero} accountExperience={account.experience} onExit={() => { exitBrowserFullscreen(); navigate("/game/play"); }} /></Suspense>;
   }
   if (matchPath && identity) {
     return <MatchRoute matchId={matchPath[2] ?? "local-match"} heroId={selectedHero} onExit={() => { exitBrowserFullscreen(); navigate("/game/play"); }} />;
@@ -471,8 +556,9 @@ function App() {
   }
   if (path === "/login") return <LoginPage navigate={navigate} signIn={signIn} hasChatGptBridge={hasChatGptBridge} />;
   if (path.startsWith("/game")) {
+    if (!sessionChecked) return <main className="game-boot-page"><div className="boot-copy"><p className="eyebrow">HOSTED ACCOUNT</p><h1>Opening your<br /><span>elemental profile.</span></h1></div></main>;
     if (!identity) return <LoginPage navigate={navigate} signIn={signIn} hasChatGptBridge={hasChatGptBridge} />;
-    return <GameHubPage path={path} navigate={navigate} identity={identity} signOut={signOut} />;
+    return <Suspense fallback={<main className="game-boot-page"><div className="boot-copy"><p className="eyebrow">GAME CLIENT</p><h1>Loading the<br /><span>3D shell.</span></h1></div></main>}><GameHubPage path={path} navigate={navigate} identity={identity} initialSelectedHero={selectedHero} account={account!} persistHero={selectHero} signOut={signOut} /></Suspense>;
   }
   if (path === "/how-it-works") return <PublicPage kind="how" navigate={navigate} />;
   if (path === "/heroes") return <PublicPage kind="heroes" navigate={navigate} />;

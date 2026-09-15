@@ -24,9 +24,11 @@ Use three explicit route families in the web client:
   `/match/history/:stageId` for authored stage briefs.
 
 The match entry starts with a client boot screen, requests fullscreen only from
-the user gesture that starts the match, and renders the existing DOM HUD plus
-Pixi arena. A missing fullscreen capability is a supported fallback. The local
-route never presents itself as authoritative online multiplayer.
+the user gesture that starts the match, and renders the existing DOM HUD plus a
+Three.js/WebGL arena. A missing fullscreen capability is a supported fallback;
+a missing WebGL capability is reported explicitly instead of being presented as
+a false 3D result. The local route never presents itself as authoritative
+online multiplayer.
 
 ## Consequences
 

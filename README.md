@@ -1,6 +1,7 @@
 # MagicMadness Arena
 
-Mobile-first, landscape, top-down 2D competitive physics arena hero-brawler.
+Mobile-first, landscape, top-down competitive physics arena hero-brawler with a
+Three.js 3D presentation over a deterministic 2D simulation.
 
 This repository is being built from the canonical MagicMadness Arena pack in
 docs/canonical/. Product decisions are closed; technical deviations require an
@@ -25,10 +26,13 @@ packages/game-core simulation locally against deterministic bots. It includes:
 - separate Match Score and Performance Score;
 - causal kill/assist event records;
 - Wind environmental event;
-- PixiJS arena renderer, mobile landscape HUD, desktop controls and diagnostics.
+- Three.js/WebGL arena renderer with authored 3D world, chibi heroes, readable
+  elemental VFX, mobile landscape HUD, desktop controls and diagnostics.
 
 The server/API packages are separate deployable boundaries. The local bot path
-uses the same game core that the authoritative server will use.
+uses the same game core that the authoritative server will use. The simulation
+owns 2D X/Y, collisions and outcomes; the renderer maps X/Y to the 3D X/Z
+plane and maps the explicit vertical state to model height/Y.
 
 The current Site build is intentionally honest about its boundary: local bot
 play is playable in the browser, while competitive authority remains on the

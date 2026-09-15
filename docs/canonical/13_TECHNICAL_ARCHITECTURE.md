@@ -46,9 +46,12 @@ Therefore client, realtime simulation and persistence are separate deployable co
 ### Web/UI/Game client
 - React.
 - Vite.
-- PixiJS for performant 2D rendering.
+- Three.js/WebGL for the authored 3D game-client presentation. The
+  deterministic combat plane remains 2D X/Y in game-core; the renderer maps it
+  to scene X/Z and maps explicit vertical gameplay state to scene Y.
 - Zustand for local UI/meta state.
-- React Router for site/app routes.
+- the lightweight history API route adapter used by the Site, replaceable by
+  React Router if route complexity requires it.
 - CSS design tokens and a small shared component system.
 
 ### Game core / physics
@@ -89,7 +92,7 @@ magicmadness-arena/
 │  ├─ web/
 │  │  ├─ public site
 │  │  ├─ authenticated app shell
-│  │  └─ Pixi game client
+│  │  └─ Three.js game client
 │  ├─ game-server/
 │  └─ api/
 ├─ packages/
@@ -123,7 +126,7 @@ BROWSER / MOBILE WEB
    │
    ├─ React application shell
    │
-   └─ Pixi game renderer
+   └─ Three.js/WebGL game renderer
           │
           ├─ local prediction
           │
@@ -210,27 +213,25 @@ Message families:
 
 ### Authenticated
 ```text
-/app
-/app/play
-/app/history
-/app/pvp
-/app/ranked
-/app/bots
-/app/friends
-/app/heroes
-/app/talents
-/app/runes
-/app/collection
-/app/profile
-/app/settings
+ /game
+ /game/play
+ /game/history
+ /game/pvp
+ /game/ranked
+ /game/bots
+ /game/friends
+ /game/heroes
+ /game/talents
+ /game/runes
+ /game/collection
+ /game/profile
+ /game/settings
 ```
 
 ### Game
 ```text
-/play/local
-/play/bots
-/play/match/:matchId
-/play/lobby/:lobbyId
+ /match/local/:matchId
+ /match/history/:stageId
 ```
 
 ## Authentication
@@ -267,10 +268,18 @@ Rendering:
 - target 60 FPS representative mid-range phone;
 - DPR cap;
 - culling;
-- sprite atlases;
+- pooled 3D entities/VFX and GLTF/animation packages when available;
 - pooled temporary entities/VFX;
 - LOD at far zoom;
 - preserve telegraphs at every LOD.
+
+3D visibility contract:
+- hero definitions expose a versioned visual package identifier;
+- game-core owns X/Y, collisions, vertical state and preview segments;
+- Three.js owns models, materials, lighting, camera and VFX only;
+- pointer aim is projected by raycasting the camera onto the game floor plane;
+- missing WebGL is reported as a capability failure, never silently rendered as
+  a different 2D game client.
 
 ## Desktop
 
@@ -316,7 +325,7 @@ Public homepage:
 - fair-progression message;
 - Login/Play CTA.
 
-Authenticated `/app`:
+Authenticated `/game`:
 - selected profile hero is central;
 - Play is primary;
 - progression/collection routes secondary.
@@ -373,3 +382,9 @@ FRIEND OPENS INVITE
 ```
 
 And the same client remains usable in local bot mode.
+
+## Hosted 3D architecture baseline — 2026-09-02
+
+The deployed Site is Worker-backed. `dist/client` contains the React/Vite/Three.js SPA; `dist/server/index.js` serves it and exposes same-origin account APIs; D1 stores account meta. `game-core` remains a deterministic 2D package shared by local bots and the separate authoritative game server. Three.js is a one-way presentation projection. Competitive movement, hit, RNG, score and rewards never move into the Site Worker or browser account API.
+
+The four starter presentation packages now load as cached/skinned GLBs through `GLTFLoader`; `SkeletonUtils.clone` gives each arena/showcase instance its own skeleton. The game-server signs result receipts with a runtime secret, while the Worker verifies and idempotently consumes them. This receipt relay transfers authority evidence, never simulation authority.

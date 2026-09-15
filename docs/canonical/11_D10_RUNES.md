@@ -115,3 +115,7 @@ Track:
 - upgrades respect caps;
 - duplicates cannot accumulate uncapped power;
 - skill tooltip shows rune contribution separately.
+
+## 3D rune presentation — 2026-09-02
+
+Runes may add sockets, trails, decals or secondary particles but cannot obscure base telegraphs, hit geometry or cooldown state. Each rune visual layer must be suppressible under performance degradation and its mechanical contribution remains separately named in the skill tooltip and combat event log.

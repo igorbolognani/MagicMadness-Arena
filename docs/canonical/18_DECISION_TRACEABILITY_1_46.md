@@ -65,3 +65,7 @@ When implementation behavior conflicts with this index:
 
 This traceability file is valuable but optional if the attachment UI is capped below the full set.
 Never omit the Executive Digest, D0–D11, Technical Architecture, Data Model, Workflow, UI/UX and Bootstrap Prompt in favor of this index.
+
+## Refactor trace — 2026-09-02
+
+The 3D refactor does not supersede decisions 1–46. It translates them into a larger authored arena, explicit presentation packages, hosted account persistence and an arena-first HUD. The controlling additions are ADR-006 (3D visibility contract), ADR-007 (Site Worker/D1 account boundary) and ADR-008 (original elemental client direction). Where visual ambition conflicts with determinism, telegraph clarity, accessibility or server authority, those earlier decisions win.

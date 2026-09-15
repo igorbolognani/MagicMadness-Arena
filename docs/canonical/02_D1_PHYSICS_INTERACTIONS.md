@@ -42,7 +42,8 @@ Support:
 
 ## Vertical-in-effect state
 
-The game remains 2D top-down but tracks a simple height axis:
+The game remains 2D top-down in simulation but tracks a simple height axis that
+the 3D client renders on the model while keeping the shadow/ring on the floor:
 
 ```text
 GROUND → RISING → AIRBORNE → FALLING → LANDING
@@ -56,7 +57,7 @@ Uses:
 - ground-only/air-only boss effects;
 - crossing low geometry where authored.
 
-Render vertical state through sprite offset, shadow and VFX.
+Render vertical state through 3D model offset, ground shadow and VFX.
 
 ## Element tags
 
@@ -160,3 +161,7 @@ Objects:
 7. Ground-only attack misses correctly airborne target.
 8. Preview predicts one static bounce.
 9. Event log reconstructs resolution order.
+
+## 3D presentation implication — 2026-09-02
+
+Every vertical-looking event is backed by explicit `VerticalState`; model height is projection, not a second physics engine. Raycast pointer selection resolves back to the 2D plane. Static shrines, ruins, houses, crates and skill walls must share bounds with preview and authoritative collision, including immediate visual removal of destroyed cover.

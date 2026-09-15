@@ -110,3 +110,7 @@ Official events may curate or fix the pool.
 - player can intentionally combo with event;
 - escalation never bypasses telegraph;
 - attribution survives event/skill interaction.
+
+## 3D event readability — 2026-09-02
+
+Wind Surge uses world-space ribbons, arena lighting and a floor telegraph while retaining a non-color event indicator in the HUD. Warning, active and calm phases must be readable at the farthest supported zoom. Environmental particles are presentation-only and may degrade in quality without affecting event force, timing or attribution.

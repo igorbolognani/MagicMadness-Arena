@@ -97,9 +97,15 @@ export const TalentNodeSchema = z.object({
 export type TalentNode = z.infer<typeof TalentNodeSchema>;
 
 export const talentNodes: TalentNode[] = [
-  { id: "attack-10-pressure", branch: "ATTACK", requiredAccountLevel: 10, prerequisites: [], effectKind: "sidegrade", description: "Slightly favors direct Force while respecting the PvP cap.", glossaryRefs: ["force", "mode-cap"] },
-  { id: "defense-10-stability", branch: "DEFENSE", requiredAccountLevel: 10, prerequisites: [], effectKind: "mechanic", description: "Improves grounded recovery timing without removing displacement counterplay.", glossaryRefs: ["resilience", "stability"] },
-  { id: "utility-10-flow", branch: "UTILITY", requiredAccountLevel: 10, prerequisites: [], effectKind: "resource", description: "Makes resource behavior more controllable without uncapped global power.", glossaryRefs: ["control", "resource"] },
+  { id: "attack-10-pressure", branch: "ATTACK", requiredAccountLevel: 10, prerequisites: [], effectKind: "sidegrade", description: "+2% spell damage (5% cap).", glossaryRefs: ["mode-cap"] },
+  { id: "defense-10-stability", branch: "DEFENSE", requiredAccountLevel: 10, prerequisites: [], effectKind: "mechanic", description: "2% less displacement received (8% cap).", glossaryRefs: ["mode-cap"] },
+  { id: "utility-10-flow", branch: "UTILITY", requiredAccountLevel: 10, prerequisites: [], effectKind: "resource", description: "2% less mana per spell (6% cap).", glossaryRefs: ["mode-cap"] },
+  { id: "attack-20-pressure", branch: "ATTACK", requiredAccountLevel: 20, prerequisites: [], effectKind: "sidegrade", description: "+2% spell damage (5% cap).", glossaryRefs: ["mode-cap"] },
+  { id: "defense-20-stability", branch: "DEFENSE", requiredAccountLevel: 20, prerequisites: [], effectKind: "mechanic", description: "2% less displacement received (8% cap).", glossaryRefs: ["mode-cap"] },
+  { id: "utility-20-flow", branch: "UTILITY", requiredAccountLevel: 20, prerequisites: [], effectKind: "resource", description: "2% less mana per spell (6% cap).", glossaryRefs: ["mode-cap"] },
+  { id: "attack-30-pressure", branch: "ATTACK", requiredAccountLevel: 30, prerequisites: [], effectKind: "sidegrade", description: "+1% spell damage (5% cap).", glossaryRefs: ["mode-cap"] },
+  { id: "defense-30-stability", branch: "DEFENSE", requiredAccountLevel: 30, prerequisites: [], effectKind: "mechanic", description: "4% less displacement received (8% cap).", glossaryRefs: ["mode-cap"] },
+  { id: "utility-30-flow", branch: "UTILITY", requiredAccountLevel: 30, prerequisites: [], effectKind: "resource", description: "2% less mana per spell (6% cap).", glossaryRefs: ["mode-cap"] },
 ];
 
 export const RuneDefinitionSchema = z.object({
@@ -115,9 +121,9 @@ export const RuneDefinitionSchema = z.object({
 export type RuneDefinition = z.infer<typeof RuneDefinitionSchema>;
 
 export const runeDefinitions: RuneDefinition[] = [
-  { id: "rune-swift-edge", family: "Projectile", compatibleTags: ["PROJECTILE"], positiveEffect: "projectile speed", tradeoff: "projectile radius", tier: 1, stackingGroup: "projectile-shape", powerBudget: 1 },
-  { id: "rune-wide-current", family: "Area", compatibleTags: ["AREA"], positiveEffect: "impact radius", tradeoff: "cast velocity", tier: 1, stackingGroup: "area-velocity", powerBudget: 1 },
-  { id: "rune-heavy-push", family: "Knockback", compatibleTags: ["DISPLACEMENT"], positiveEffect: "knockback", tradeoff: "mana cost", tier: 1, stackingGroup: "knockback-resource", powerBudget: 1 },
+  { id: "rune-swift-edge", family: "Projectile", compatibleTags: ["PROJECTILE"], positiveEffect: "+10% projectile speed", tradeoff: "-8% projectile radius", tier: 1, stackingGroup: "projectile-shape", powerBudget: 1 },
+  { id: "rune-wide-current", family: "Area", compatibleTags: ["AREA"], positiveEffect: "+8% area radius", tradeoff: "+8% mana cost", tier: 1, stackingGroup: "area-velocity", powerBudget: 1 },
+  { id: "rune-heavy-push", family: "Knockback", compatibleTags: ["DISPLACEMENT"], positiveEffect: "+8% displacement", tradeoff: "+8% mana cost", tier: 1, stackingGroup: "knockback-resource", powerBudget: 1 },
 ];
 
 export const CurrencyDefinitionSchema = z.object({

@@ -148,3 +148,7 @@ No deep menu labyrinth between rounds, especially on mobile.
 - hazard KO attribution works;
 - streaks derive from authoritative event log;
 - 5/10/15 progression visible.
+
+## 3D match presentation — 2026-09-02
+
+The arena occupies the full viewport. Round, time, event warning and placement remain peripheral overlays; HP/mana, movement and radial skills stay in thumb-safe zones. Development diagnostics are hidden by default. Result presentation must preserve Match Score versus Performance Score and never infer placement from visual spectacle.

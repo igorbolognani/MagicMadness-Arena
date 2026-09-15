@@ -259,3 +259,7 @@ MERGE
 ```
 
 Repository and test evidence override model self-report.
+
+## 3D + hosting release gate — 2026-09-02
+
+Every visual milestone runs package typecheck, deterministic unit tests, Worker account-contract tests and a production build that emits both `dist/client` and `dist/server/index.js`. Arena dimension changes require spawn/bounds/preview regression tests. A hosted release also validates immutable D1 migrations, packages the exact Git commit and polls deployment to a terminal state. Browser E2E remains required when a compatible Chromium runtime is available.

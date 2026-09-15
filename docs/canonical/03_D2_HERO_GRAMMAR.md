@@ -144,3 +144,7 @@ Matches store:
 - every status term is explainable;
 - branch changes behavior without ad-hoc code;
 - hero recognizable at far zoom.
+
+## 3D body package contract — 2026-09-02
+
+Every released hero requires a versioned body package containing silhouette, proportions, headgear, focus/weapon, back piece, ground ring, portrait pose and the states idle/move/cast/hit/knockback/death/victory. The four starters must remain identifiable in grayscale and far zoom: Fire is sharp/furnace-like, Water flowing/crested, Earth broad/armored, Air narrow/winged.

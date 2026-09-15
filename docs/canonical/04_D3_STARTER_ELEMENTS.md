@@ -115,3 +115,7 @@ Later heroes bring different mechanics, complexity and playstyles.
 - each major boss has at least one non-DPS mechanic;
 - all starters can win equal-budget PvP;
 - core systems remain accessible through play.
+
+## Starter 3D art direction — 2026-09-02
+
+Fire uses horned flame-crown geometry, an ember focus and aggressive forward shapes. Water uses a tide crest, translucent cape/fins and shell focus. Earth uses a broad stone helm, visor, gauntlets and shield mass. Air uses feather/halo, wing ribbons and a light floating silhouette. Their sixteen skills require distinct icon and VFX packages; hue alone may not carry meaning.

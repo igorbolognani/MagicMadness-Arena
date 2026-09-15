@@ -15,14 +15,17 @@
     "@mma/balance": "workspace:*",
     "@mma/content": "workspace:*",
     "@mma/game-core": "workspace:*",
+    "@mma/physics": "workspace:*",
+    "@mma/protocol": "workspace:*",
     "@mma/progression": "workspace:*",
     "@mma/telemetry": "workspace:*",
     "@mma/ui": "workspace:*",
-    "pixi.js": "^7.4.2",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "three": "^0.179.1"
   },
   "devDependencies": {
+    "@types/three": "^0.179.0",
     "@playwright/test": "^1.52.0",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",

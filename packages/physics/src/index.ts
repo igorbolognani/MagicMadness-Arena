@@ -80,10 +80,71 @@ export function segmentPoint(start: Vec2, direction: Vec2, distanceAlong: number
 
 export type Aabb = { min: Vec2; max: Vec2 };
 
+export type RayAabbHit = {
+  distance: number;
+  point: Vec2;
+  normal: Vec2;
+};
+
+/**
+ * Return the first point where a normalized ray enters an axis-aligned box.
+ * Game-core uses this pure helper for deterministic telegraph previews; the
+ * authoritative projectile step still owns collision resolution and events.
+ */
+export function rayAabbIntersection(
+  origin: Vec2,
+  direction: Vec2,
+  maxDistance: number,
+  min: Vec2,
+  max: Vec2,
+): RayAabbHit | null {
+  const ray = normalize(direction);
+  let entry = 0;
+  let exit = maxDistance;
+  let normal: Vec2 = { x: 0, y: 0 };
+
+  const axes: Array<{
+    origin: number;
+    direction: number;
+    min: number;
+    max: number;
+    minNormal: Vec2;
+    maxNormal: Vec2;
+  }> = [
+    { origin: origin.x, direction: ray.x, min: min.x, max: max.x, minNormal: { x: -1, y: 0 }, maxNormal: { x: 1, y: 0 } },
+    { origin: origin.y, direction: ray.y, min: min.y, max: max.y, minNormal: { x: 0, y: -1 }, maxNormal: { x: 0, y: 1 } },
+  ];
+
+  for (const axis of axes) {
+    if (Math.abs(axis.direction) < 0.000001) {
+      if (axis.origin < axis.min || axis.origin > axis.max) return null;
+      continue;
+    }
+    let near = (axis.min - axis.origin) / axis.direction;
+    let far = (axis.max - axis.origin) / axis.direction;
+    let nearNormal = axis.minNormal;
+    if (near > far) {
+      [near, far] = [far, near];
+      nearNormal = axis.maxNormal;
+    }
+    if (near > entry) {
+      entry = near;
+      normal = nearNormal;
+    }
+    exit = Math.min(exit, far);
+    if (entry > exit || exit < 0) return null;
+  }
+
+  const distance = Math.max(0, entry);
+  if (distance > maxDistance) return null;
+  return { distance, point: add(origin, scale(ray, distance)), normal };
+}
+
 export type PhysicsAdapter = {
   circleOverlapsAabb: typeof circleOverlapsAabb;
   circleOverlapsCircle: typeof circleOverlapsCircle;
   closestPointOnAabb: typeof closestPointOnAabb;
+  rayAabbIntersection: typeof rayAabbIntersection;
   reflect: typeof reflect;
 };
 
@@ -91,5 +152,6 @@ export const deterministicPhysics: PhysicsAdapter = {
   circleOverlapsAabb,
   circleOverlapsCircle,
   closestPointOnAabb,
+  rayAabbIntersection,
   reflect,
 };

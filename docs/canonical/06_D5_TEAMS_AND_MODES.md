@@ -124,3 +124,7 @@ Support:
 - invite link joins correct lobby;
 - party survives queue/result;
 - account-band mismatch protection works.
+
+## First playable 3D mode — 2026-09-02
+
+The immediate mode is one player versus four bots in the Grand Meridian. The roster cycle guarantees all four starter elemental identities are represented, with one duplicate only when the player’s chosen family requires it. Bots use the same movement, aiming, cooldown, collision and event contracts as players. Online Normal/Ranked remain behind authoritative WebSocket matchmaking.
